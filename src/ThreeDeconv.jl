@@ -1,4 +1,4 @@
-module 3Deconv
+module ThreeDeconv
 
 # package code goes here
 
