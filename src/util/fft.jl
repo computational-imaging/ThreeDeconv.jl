@@ -1,7 +1,6 @@
 # __BEGIN_LICENSE__
 #
 # ThreeDeconv.jl
-# Author: Hayato Ikoma (h9koma@stanford.edu)
 #
 # Copyright (c) 2018, Stanford University
 #
@@ -46,23 +45,32 @@
 # __END_LICENSE__
 
 
-module ThreeDeconv
+const _rfft3_cache =
+    Dict{Tuple{DataType,NTuple{3,Integer}}, LinearOperator}()
 
-import Base.GC.gc
-using LinearAlgebra, FFTW, GPUArrays, Requires
-FFTW.set_num_threads(4)
-
-iscuda() = false
-
-function __init__()
-    @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin @eval using CuArrays; iscuda() = true end
+function rfft3_operator(x::S)::LinearOperator where S<:Array{T,3} where T<:AbstractFloat
+    key = (S, size(x))
+    if !haskey(_rfft3_cache, key)
+        y = copy(x)
+        P = plan_rfft(y, flags = FFTW.MEASURE)
+        forward(θ) = P * θ
+        adjoint(θ) = P \ θ
+        _rfft3_cache[key] =
+            LinearOperator(size(x), size(x), forward, adjoint, false, T)
+    end
+    return _rfft3_cache[key]
 end
 
-include("psf/psf.jl")
-include("util/linearoperator.jl")
-include("util/fft.jl")
-include("util/util.jl")
-include("noiseestimation/noiseestimation.jl")
-include("deconvolution/deconvolve.jl")
 
-end # module
+function rfft3_operator(x::S)::LinearOperator where S<:GPUArray{T,3} where T<:AbstractFloat
+    key = (S, size(x))
+    if !haskey(_rfft3_cache, key)
+        y = copy(x)
+        P = plan_rfft(y)
+        forward(θ) = P * θ
+        adjoint(θ) = P \ θ
+        _rfft3_cache[key] =
+            LinearOperator(size(x), size(x), forward, adjoint, false, T)
+    end
+    return _rfft3_cache[key]
+end

@@ -1,7 +1,6 @@
 # __BEGIN_LICENSE__
 #
 # ThreeDeconv.jl
-# Author: Hayato Ikoma (h9koma@stanford.edu)
 #
 # Copyright (c) 2018, Stanford University
 #
@@ -46,23 +45,42 @@
 # __END_LICENSE__
 
 
-module ThreeDeconv
+using Printf
 
-import Base.GC.gc
-using LinearAlgebra, FFTW, GPUArrays, Requires
-FFTW.set_num_threads(4)
+include("foi.jl")
 
-iscuda() = false
 
-function __init__()
-    @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin @eval using CuArrays; iscuda() = true end
+"""
+noise estimation
+"""
+function noise_estimation(img::AbstractArray;
+                          maxnum_pairs::Int=300,
+                          verbose::Bool=false)
+    @assert sizeof(img) <= 10^9 * 8 # Prevent input image size more than 1GB
+
+    offset = -minimum(img)
+    subimg = img .+ offset
+    scale = 1 / (maximum(subimg) * 1.1)
+    scaled_img = Float32.(subimg.*scale)
+
+    scaled_a, scaled_b = foi_noiseestimation(scaled_img, maxnum_pairs=maxnum_pairs, verbose=verbose)
+
+    # Rescale back the estimated parameters.
+    a = scaled_a / scale
+    b = scaled_b / scale^2
+    @printf "Estimated noise parameters are a = %4.3f, b = %4.3f.\n" a b
+
+    γ_est = a
+    σsq_est = a * offset + b
+
+    if σsq_est < .0
+        @printf "Noise estimation might have failed. σ⁠^2 = %4.3f.\n
+                 Proceeding by setting σ^2 = .0 to assure the variance's
+                 nonnegativity.\n" σsq_est
+        σsq_est = .0 + 1e-10
+    end
+    σ_est = sqrt(σsq_est)
+    println("Estimated parameters for Poisson-Gaussian noise model")
+    println("γ: $γ_est, σ: $σ_est")
+    return γ_est, σ_est
 end
-
-include("psf/psf.jl")
-include("util/linearoperator.jl")
-include("util/fft.jl")
-include("util/util.jl")
-include("noiseestimation/noiseestimation.jl")
-include("deconvolution/deconvolve.jl")
-
-end # module

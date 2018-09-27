@@ -1,9 +1,8 @@
 # __BEGIN_LICENSE__
 #
-# ThreeDeconv.jl
-# Author: Hayato Ikoma (h9koma@stanford.edu)
+# WaveOptics.jl
 #
-# Copyright (c) 2018, Stanford University
+# Copyright (c) 2015, Stanford University
 #
 # All rights reserved.
 #
@@ -45,24 +44,15 @@
 #
 # __END_LICENSE__
 
+"""
+Return spatial frequencies that correspond to elements returned by the fft() function.
+This method handles the peculiarities of even vs. odd lengthed FFTs.
 
-module ThreeDeconv
-
-import Base.GC.gc
-using LinearAlgebra, FFTW, GPUArrays, Requires
-FFTW.set_num_threads(4)
-
-iscuda() = false
-
-function __init__()
-    @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin @eval using CuArrays; iscuda() = true end
+It is meant to behave like np.fft.fftfreq from Python.  
+"""
+function fftfreq(n::Int64, d::Number)
+  N = fld(n-1,2)
+  p1 = 0:N
+  p2 = -fld(n,2):-1
+  return [p1; p2]./(d*n)
 end
-
-include("psf/psf.jl")
-include("util/linearoperator.jl")
-include("util/fft.jl")
-include("util/util.jl")
-include("noiseestimation/noiseestimation.jl")
-include("deconvolution/deconvolve.jl")
-
-end # module

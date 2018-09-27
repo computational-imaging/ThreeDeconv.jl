@@ -1,1 +1,8 @@
-julia 0.6
+julia 1.0
+QuadGK 2.0.2
+Optim 0.17.1
+Interpolations 0.9.1
+FFTW 0.2.4
+SpecialFunctions 0.7.1
+GPUArrays 0.4.1
+Requires 0.5.2

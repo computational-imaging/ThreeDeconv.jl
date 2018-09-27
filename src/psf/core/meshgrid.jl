@@ -1,9 +1,8 @@
 # __BEGIN_LICENSE__
 #
-# ThreeDeconv.jl
-# Author: Hayato Ikoma (h9koma@stanford.edu)
+# WaveOptics.jl
 #
-# Copyright (c) 2018, Stanford University
+# Copyright (c) 2015, Stanford University
 #
 # All rights reserved.
 #
@@ -45,24 +44,28 @@
 #
 # __END_LICENSE__
 
+meshgrid(v::AbstractVector) = meshgrid(v, v)
 
-module ThreeDeconv
-
-import Base.GC.gc
-using LinearAlgebra, FFTW, GPUArrays, Requires
-FFTW.set_num_threads(4)
-
-iscuda() = false
-
-function __init__()
-    @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin @eval using CuArrays; iscuda() = true end
+"""
+This function performs the same operation as MATLAB or numpy's meshgrid()
+"""
+function meshgrid(vx::AbstractVector{T}, vy::AbstractVector{T}) where T
+    m, n = length(vy), length(vx)
+    vx = reshape(vx, 1, n)
+    vy = reshape(vy, m, 1)
+    (repeat(vx, m, 1), repeat(vy, 1, n))
 end
 
-include("psf/psf.jl")
-include("util/linearoperator.jl")
-include("util/fft.jl")
-include("util/util.jl")
-include("noiseestimation/noiseestimation.jl")
-include("deconvolution/deconvolve.jl")
-
-end # module
+"""
+This function performs the same operation as MATLAB or numpy's meshgrid()
+"""
+function meshgrid(vx::AbstractVector{T}, vy::AbstractVector{T}, vz::AbstractVector{T}) where T
+    m, n, o = length(vy), length(vx), length(vz)
+    vx = reshape(vx, 1, n, 1)
+    vy = reshape(vy, m, 1, 1)
+    vz = reshape(vz, 1, 1, o)
+    om = ones(Int, m)
+    on = ones(Int, n)
+    oo = ones(Int, o)
+    (vx[om, :, oo], vy[:, on, oo], vz[om, on, :])
+end

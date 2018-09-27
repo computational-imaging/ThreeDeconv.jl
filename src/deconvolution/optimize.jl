@@ -1,7 +1,6 @@
 # __BEGIN_LICENSE__
 #
 # ThreeDeconv.jl
-# Author: Hayato Ikoma (h9koma@stanford.edu)
 #
 # Copyright (c) 2018, Stanford University
 #
@@ -46,23 +45,52 @@
 # __END_LICENSE__
 
 
-module ThreeDeconv
+function optimize(optimizer::Optimizer, options::DeconvolutionOptions)
+    tic = time()
 
-import Base.GC.gc
-using LinearAlgebra, FFTW, GPUArrays, Requires
-FFTW.set_num_threads(4)
+    state = optimizer.initial_state
 
-iscuda() = false
+    metric = optimizer.check_state(state, 0, tic)
+    trace = OptimizationTrace{typeof(metric)}()
+    push!(trace, metric)
 
-function __init__()
-    @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin @eval using CuArrays; iscuda() = true end
+    if options.show_trace
+        print_header(optimizer.method)
+        show(metric)
+    end
+
+    if options.x0 != []
+        state.x .= typeof(state.x)(options.x0)
+    end
+
+    converged = false
+    for iter in 1:options.max_iters
+
+        optimizer.update_state!(state)
+
+        if iter % options.check_every == 0
+
+            metric = optimizer.check_state(state, iter, tic)
+            push!(trace, metric)
+
+            if options.show_trace
+                show(metric)
+            end
+
+            if optimizer.check_convergence(metric)
+                @printf "Optimization converged.\n"
+                converged = true
+                break
+            end
+
+            if !isnan(options.time_limit) && metric.elapsed_time > options.time_limit
+                @printf "Time out.\n"
+                break
+            end
+
+        end
+
+    end
+
+    return OptimizationResult(state.x, trace, converged)
 end
-
-include("psf/psf.jl")
-include("util/linearoperator.jl")
-include("util/fft.jl")
-include("util/util.jl")
-include("noiseestimation/noiseestimation.jl")
-include("deconvolution/deconvolve.jl")
-
-end # module

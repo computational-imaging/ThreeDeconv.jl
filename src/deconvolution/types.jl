@@ -1,7 +1,6 @@
 # __BEGIN_LICENSE__
 #
 # ThreeDeconv.jl
-# Author: Hayato Ikoma (h9koma@stanford.edu)
 #
 # Copyright (c) 2018, Stanford University
 #
@@ -46,23 +45,40 @@
 # __END_LICENSE__
 
 
-module ThreeDeconv
+abstract type SolverState end
+abstract type SolverMetric end
+abstract type Solver end
 
-import Base.GC.gc
-using LinearAlgebra, FFTW, GPUArrays, Requires
-FFTW.set_num_threads(4)
-
-iscuda() = false
-
-function __init__()
-    @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin @eval using CuArrays; iscuda() = true end
+struct Optimizer
+    method
+    initial_state
+    update_state!::Function
+    check_state::Function
+    check_convergence::Function
 end
 
-include("psf/psf.jl")
-include("util/linearoperator.jl")
-include("util/fft.jl")
-include("util/util.jl")
-include("noiseestimation/noiseestimation.jl")
-include("deconvolution/deconvolve.jl")
+OptimizationTrace{T<:SolverMetric} = Vector{T}
 
-end # module
+mutable struct DeconvolutionOptions
+    max_iters::Int
+    show_trace::Bool
+    check_every::Int
+    time_limit::Float64
+    x0::AbstractArray
+end
+
+function DeconvolutionOptions(;
+    max_iters::Integer = 100,
+    show_trace::Bool = true,
+    check_every::Integer = 10,
+    time_limit = NaN,
+    x0::AbstractArray = [])
+    check_every = check_every > 0 ? check_every : 1
+    DeconvolutionOptions(Int(max_iters), show_trace, check_every, time_limit, x0)
+end
+
+mutable struct OptimizationResult
+    x::AbstractArray
+    trace::OptimizationTrace
+    converged::Bool
+end

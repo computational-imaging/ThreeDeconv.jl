@@ -1,7 +1,6 @@
 # __BEGIN_LICENSE__
 #
 # ThreeDeconv.jl
-# Author: Hayato Ikoma (h9koma@stanford.edu)
 #
 # Copyright (c) 2018, Stanford University
 #
@@ -46,23 +45,52 @@
 # __END_LICENSE__
 
 
-module ThreeDeconv
+include("types.jl")
+include("optimize.jl")
+include("admm.jl")
+include("setup_admm.jl")
 
-import Base.GC.gc
-using LinearAlgebra, FFTW, GPUArrays, Requires
-FFTW.set_num_threads(4)
+"""
+    deconvolve(img, psf, γ, σ, reg, method, options)
 
-iscuda() = false
+Deconvolve a focal stack image (img). A 3D psf, camera gain and readnoise variance
+have to be known.
 
-function __init__()
-    @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin @eval using CuArrays; iscuda() = true end
+The detail of the algorithm is available from
+"A convex 3D deconvolution algorithm for low photon count fluorescence imaging"
+Scientific Reports 8, Article number: 11489 (2018)
+Hayato Ikoma, Michael Broxton, Takamasa Kudo, Gordon Wetzstein
+"""
+function deconvolve(
+    img::Array{T,3}, # 3D captured image [width x height x depth]
+    psf::Array{Float32,3}, # 3D psf
+    γ::Real, # camera gain
+    σ::Real, # camera readnoise std
+    reg::Real, # regularization parameter
+    method::ADMM=ADMM();
+    options::DeconvolutionOptions
+    ) where T<:Real
+    @assert size(img,1) == size(img,2)
+    @assert all(.!isnan.(img))
+    @assert γ > 0
+    @assert σ > 0
+
+    I,J,K = size(img)
+
+    # Convert the unit to photoelectron number
+    std_img = img ./ γ
+    std_σ = σ / γ
+
+    if isnan(method.ρ)
+        method.ρ = 6000. * reg / maximum(std_img)
+    end
+
+    optimizer = setup_optimizer(method, Float32.(std_img), psf, Float32(σ^2), Float32(reg), Float32(method.ρ))
+    result = optimize(optimizer, options)
+    result.x = collect(result.x[1:I,1:J,1:K])
+
+    gc()
+
+    # Release GPU memory
+    return result
 end
-
-include("psf/psf.jl")
-include("util/linearoperator.jl")
-include("util/fft.jl")
-include("util/util.jl")
-include("noiseestimation/noiseestimation.jl")
-include("deconvolution/deconvolve.jl")
-
-end # module
