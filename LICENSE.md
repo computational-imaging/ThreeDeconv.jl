@@ -1,4 +1,4 @@
-The 3Deconv.jl package is licensed under the following license:
+The ThreeDeconv.jl package is licensed under the following license:
 
 > Copyright (c) 2018, Stanford University
 >
