@@ -14,7 +14,7 @@ pkg> add https://github.com/computational-imaging/ThreeDeconv.jl.git
 
 # Usage
 
-The sample Jupyter notebook is avaialbe in the `example` directory.
+The sample Jupyter notebook is available in the `example` directory.
 
 To run the notebook, you need to install Julia packages, [IJulia.jl](https://github.com/JuliaLang/IJulia.jl), [PyCall.jl](https://github.com/JuliaPy/PyCall.jl), [PyPlot.jl](https://github.com/JuliaPy/PyPlot.jl) and [Conda.jl](https://github.com/JuliaPy/Conda.jl), and a Python package, [scikit-image](https://scikit-image.org/), for image I/O. You can run the following in Julia's REPL to install them. If you already have a Python environment that you want to use from Julia, please consult with `PyCall.jl`in
 
