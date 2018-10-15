@@ -57,6 +57,12 @@ If there is some demand, we can extend it to non-square images and confocal micr
 
 If you find this package useful but feel that it lacks some functionalities for your research, feel free to create an issue in this repository. I am happy to extend this package to accomodate your need.
 
+# Developers
+This package is mostly developed by [@hayatoikoma](https://github.com/hayatoikoma), and the PSF simulator (WaveOptics.jl) is developed by [@broxtronix](https://github.com/broxtronix).
+`WaveOptics.jl` is still an unreleased Julia package for various PSF simulations.
+`ThreeDeconv.jl` has incorporated part of `WaveOptics.jl` for this release.
+
+
 # License
 The ThreeDeconv.jl package is licensed under the following license:
 
