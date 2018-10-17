@@ -16,22 +16,21 @@ pkg> add https://github.com/computational-imaging/ThreeDeconv.jl.git
 
 The sample Jupyter notebook is available in the `example` directory.
 
-To run the notebook, you need to install Julia packages, [IJulia.jl](https://github.com/JuliaLang/IJulia.jl), [PyCall.jl](https://github.com/JuliaPy/PyCall.jl), [PyPlot.jl](https://github.com/JuliaPy/PyPlot.jl) and [Conda.jl](https://github.com/JuliaPy/Conda.jl), and a Python package, [scikit-image](https://scikit-image.org/), for image I/O. You can run the following in Julia's REPL to install them. If you already have a Python environment that you want to use from Julia, please consult with `PyCall.jl`in
-
+To run the notebook, you need [`IJulia.jl`](https://github.com/JuliaLang/IJulia.jl), [`PyCall.jl`](https://github.com/JuliaPy/PyCall.jl), [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) and [`Conda.jl`](https://github.com/JuliaPy/Conda.jl). In addition, you need make [scikit-image](https://scikit-image.org/) available through `PyCall`. You can run the following in Julia's REPL to install them.
 ```julia-repl
 pkg> add Conda
 julia> using Conda
 julia> Conda.add_channel("conda-forge")
 julia> Conda.add("scikit-image")
 julia> ENV["PYTHON"]=""
-pkg> add PyCall PyPlot
+pkg> add PyCall PyPlot IJulia
 ```
+
+If you already have a Python environment that you want to use from Julia, please consult with `PyCall.jl`.
 
 # Dataset
 The dataset used in our paper is available at [Google Drive (150MB)](https://drive.google.com/a/stanford.edu/file/d/1lWlvngb5iJkToFKLSA3N1FuScVPTe-42/view?usp=sharing).
-The images are corrected with darkfield and flatfield correction as described in the paper.
-
-Its raw dataset is also available at [Google Drive (1GB)](https://drive.google.com/a/stanford.edu/file/d/1pg_OG5GxjcKMSvwi4Si0HTyWT0XCW4Kt/view?usp=sharing).
+The images are processed with darkfield and flatfield correction as described in the paper. Its raw dataset is also available at [Google Drive (1GB)](https://drive.google.com/a/stanford.edu/file/d/1pg_OG5GxjcKMSvwi4Si0HTyWT0XCW4Kt/view?usp=sharing).
 This dataset comes with corresponding darkfield and flatfield images.
 
 This dataset can be used for academic and other non-commercial purposes.
@@ -40,12 +39,22 @@ If you use this dataset in your research paper, please cite our paper.
 
 
 # Citation
-
 ["A convex 3D deconvolution algorithm for low photon count fluorescence imaging"](https://www.nature.com/articles/s41598-018-29768-x#Sec21)
-
 _Scientific Reports_ **8**, Article number: 11489 (2018)
-
 Hayato Ikoma, Michael Broxton, Takamasa Kudo, Gordon Wetzstein
+
+```
+@article{ikoma2018convex,
+  title={A convex 3D deconvolution algorithm for low photon count fluorescence imaging},
+  author={Ikoma, Hayato and Broxton, Michael and Kudo, Takamasa and Wetzstein, Gordon},
+  journal={Scientific reports},
+  volume={8},
+  number={1},
+  pages={11489},
+  year={2018},
+  publisher={Nature Publishing Group}
+}
+```
 
 If you use this library for your research, please cite our paper.
 
