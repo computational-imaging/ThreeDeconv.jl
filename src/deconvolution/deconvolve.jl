@@ -70,7 +70,7 @@ function deconvolve(
     method::ADMM=ADMM();
     options::DeconvolutionOptions
     ) where T<:Real
-    @assert size(img,1) == size(img,2)
+    
     @assert all(.!isnan.(img))
     @assert γ > 0
     @assert σ > 0
