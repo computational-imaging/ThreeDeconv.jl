@@ -61,10 +61,7 @@ If you use this library for your research, please cite our paper.
 
 # To biologists
 
-Currently, this library can deconvolve square images captured with widefield fluorescence microscopy.
-If there is some demand, we can extend it to non-square images and confocal microscopy.
-
-If you find this package useful but feel that it lacks some functionalities for your research, feel free to create an issue in this repository. I am happy to extend this package to accomodate your need.
+If you find this package useful but feel that it lacks some functionalities for your research, feel free to create an issue in this repository or send an email [@hayatoikoma](https://github.com/hayatoikoma). I am happy to extend this package to accomodate your need.
 
 # Developers
 This package is mostly developed by [@hayatoikoma](https://github.com/hayatoikoma), and the PSF simulator (WaveOptics.jl) is developed by [@broxtronix](https://github.com/broxtronix).
