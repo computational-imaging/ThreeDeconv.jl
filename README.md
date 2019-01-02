@@ -12,21 +12,33 @@ Hit the key `]` in the Julia REPL to ender the Pkg REPL-mode, and run
 pkg> add https://github.com/computational-imaging/ThreeDeconv.jl.git
 ```
 
-# Usage
-
-The sample Jupyter notebook is available in the `example` directory.
-
-To run the notebook, you need [`IJulia.jl`](https://github.com/JuliaLang/IJulia.jl), [`PyCall.jl`](https://github.com/JuliaPy/PyCall.jl), [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) and [`Conda.jl`](https://github.com/JuliaPy/Conda.jl). In addition, you need make [scikit-image](https://scikit-image.org/) available through `PyCall`. You can run the following in Julia's REPL to install them.
+# Example usage
+To run the example script, you need [`PyCall.jl`](https://github.com/JuliaPy/PyCall.jl), [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) and [`Conda.jl`](https://github.com/JuliaPy/Conda.jl). In addition, you need [scikit-image](https://scikit-image.org/) available through `PyCall`. You can run the following in Julia's REPL to install them.
 ```julia-repl
 pkg> add Conda
 julia> using Conda
 julia> Conda.add_channel("conda-forge")
 julia> Conda.add("scikit-image")
 julia> ENV["PYTHON"]=""
-pkg> add PyCall PyPlot IJulia
+pkg> add PyCall PyPlot 
+```
+If you already have a Python environment that you want to use from Julia, please consult with `PyCall.jl`.
+Since these packages are required just for image I/O, you can also use other packages if you want.
+However, I personally found that `scikit-image` is the most convenient package to read multi-stack tiff files from Julia.
+
+If you have a CUDA-compatible NVIDIA GPU, you can use [`CuArrays.jl`](https://github.com/JuliaGPU/CuArrays.jl) to accelerate deconvolution by just running `using CuArrays` after loading `ThreeDeconv.jl`. You can install `CuArrays` by running the following command in Julia's REPL.
+```julia-repl
+pkg> add CuArrays
 ```
 
-If you already have a Python environment that you want to use from Julia, please consult with `PyCall.jl`.
+Then, after downloading the dataset (described below) in the `example` directory, run
+```
+julia example.jl
+```
+from your terminal in the `example` directory. The script simulates the PSF, deconvolves the fluorescent bead and saves the deconvolved image.
+
+The sample script is actually a script converted from [the Jupyter notebook](https://github.com/computational-imaging/ThreeDeconv.jl/blob/master/example/Example.ipynb) also available in the same directory. To run the notebook, you need [`IJulia.jl`](https://github.com/JuliaLang/IJulia.jl).
+
 
 # Dataset
 The dataset used in our paper is available at [Google Drive (150MB)](https://drive.google.com/a/stanford.edu/file/d/1lWlvngb5iJkToFKLSA3N1FuScVPTe-42/view?usp=sharing).
