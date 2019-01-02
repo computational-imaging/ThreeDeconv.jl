@@ -1,3 +1,6 @@
+# ThreeDeconv v1.1 release note
+* Add a support for non-square images
+
 # ThreeDeconv v1.0 release note
 This package is mostly developed by [@hayatoikoma](https://github.com/hayatoikoma), and the PSF simulator (WaveOptics.jl) is developed by [@broxtronix](https://github.com/broxtronix).
 `WaveOptics.jl` is still an unreleased Julia package for various PSF simulations.
