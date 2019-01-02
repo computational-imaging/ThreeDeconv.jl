@@ -1,7 +1,12 @@
-# ThreeDeconv v1.1 release note
-* Add a support for non-square images
+# v1.2 release note
+* Add an example script
+* Now, the computation time for Fig.2 is 5.6 sec.
 
-# ThreeDeconv v1.0 release note
+
+# v1.1 release note
+* Support for non-square images
+
+# v1.0 release note
 This package is mostly developed by [@hayatoikoma](https://github.com/hayatoikoma), and the PSF simulator (WaveOptics.jl) is developed by [@broxtronix](https://github.com/broxtronix).
 `WaveOptics.jl` is still an unreleased Julia package for various PSF simulations.
 `ThreeDeconv.jl` has incorporated part of `WaveOptics.jl` for this release.
