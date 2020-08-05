@@ -1,7 +1,10 @@
+# v1.3 release note
+* Update to Julia v.1.5.0
+* Stop maintaining Jupyter notebook
+
 # v1.2 release note
 * Add an example script
 * Now, the computation time for Fig.2 is 5.6 sec.
-
 
 # v1.1 release note
 * Support for non-square images

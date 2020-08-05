@@ -62,7 +62,7 @@ function rfft3_operator(x::S)::LinearOperator where S<:Array{T,3} where T<:Abstr
 end
 
 
-function rfft3_operator(x::S)::LinearOperator where S<:GPUArray{T,3} where T<:AbstractFloat
+function rfft3_operator(x::S)::LinearOperator where S<:CuArray{T,3} where T<:AbstractFloat
     key = (S, size(x))
     if !haskey(_rfft3_cache, key)
         y = copy(x)

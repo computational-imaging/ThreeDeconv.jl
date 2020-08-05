@@ -49,13 +49,13 @@
 module ThreeDeconv
 
 import Base.GC.gc
-using LinearAlgebra, FFTW, GPUArrays, Requires
+using LinearAlgebra, FFTW, CUDA
 FFTW.set_num_threads(4)
 
-iscuda() = false
-
-function __init__()
-    @require CuArrays="3a865a2d-5b23-5a0f-bc46-62713ec82fae" begin @eval using CuArrays; iscuda() = true end
+if CUDA.functional()
+    to_gpu_or_not_to_gpu(x::AbstractArray) = CuArray(x)
+else
+    to_gpu_or_not_to_gpu(x::AbstractArray) = x
 end
 
 include("psf/psf.jl")

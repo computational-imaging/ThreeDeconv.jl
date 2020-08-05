@@ -305,11 +305,9 @@ function psf_3d(model::DefocusModel, zrange::AbstractArray{T,1}) where T<:Real
     c_rho = model.aperture_plane_coordinates.rho
     c_theta = model.aperture_plane_coordinates.theta
     microscope_atf = model.microscope_atf
-    if ThreeDeconv.iscuda()
-        c_rho = ThreeDeconv.cu(c_rho)
-        c_theta = ThreeDeconv.cu(c_theta)
-        microscope_atf = ThreeDeconv.cu(microscope_atf)
-    end
+    c_rho = ThreeDeconv.to_gpu_or_not_to_gpu(c_rho)
+    c_theta = ThreeDeconv.to_gpu_or_not_to_gpu(c_theta)
+    microscope_atf = ThreeDeconv.to_gpu_or_not_to_gpu(microscope_atf)
 
     M,N = size(c_rho)
 

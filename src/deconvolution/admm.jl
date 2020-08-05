@@ -70,7 +70,7 @@ mutable struct ADMMstate{T<:AbstractArray{Float32,3}} <: SolverState
 end
 
 function ADMMstate(input_shape::NTuple, output_shape::Vector{Tuple})
-    if iscuda()
+    if CUDA.functional()
         dtype = CuArray{Float32}
     else
         dtype = Float32

@@ -1,21 +1,26 @@
-using PyCall, Printf
-@pyimport skimage.io as io
+"""
+Use the following command in REPL to make a sysimage:
+using PackageCompiler
+create_sysimage([:ThreeDeconv, :PyCall], sysimage_path="sys_threedeconv.so", precompile_execution_file="example/example.jl")
+"""
+
 using ThreeDeconv
-using CuArrays
+using PyCall, Printf
+skimage_io = pyimport("skimage.io")
 
 function imread(filename::String)
-    img = io.imread(filename)
-    if ndims(img)==3
-        img = permutedims(img, (2,3,1))
+    img = skimage_io.imread(filename)
+    if ndims(img) == 3
+        img = permutedims(img, (2, 3, 1))
     end
     return img
 end
 
 function imsave(filename::String, img::Array)
-    if ndims(img)==3
-        img = permutedims(img, (3,1,2))
+    if ndims(img) == 3
+        img = permutedims(img, (3, 1, 2))
     end
-    io.imsave(filename, img)
+    skimage_io.imsave(filename, img)
 end
 
 imgraw = imread("dataset/raw/bead/raw_cropped/bead_highsnr_raw.tif")
@@ -33,8 +38,8 @@ NA = 1.4
 λ = 540 # [nm]
 
 
-γ, σ = ThreeDeconv.noise_estimation(img, maxnum_pairs=100)
-@printf "Gain: %.1f, Read noise std.: %.1f" γ σ
+γ, σ = ThreeDeconv.noise_estimation(img, maxnum_pairs = 200)
+@printf "Gain: %.1f, Read noise std.: %.1f \n" γ σ
 
 pad = 10
 psf_shape = size(img) .+ pad
@@ -48,15 +53,13 @@ psf = ThreeDeconv.psf(
     camera_pixel_size = camera_pixel_size,
     zstep = zstep,
     f_tubelens = f_tubelens,
-    oversampling = 4)
-
-
-options = ThreeDeconv.DeconvolutionOptions(
-    max_iters=150,
-    show_trace=true,
-    check_every=10
+    oversampling = 4,
 )
+
+
+options =
+    ThreeDeconv.DeconvolutionOptions(max_iters = 150, show_trace = true, check_every = 50)
 reg = 0.01
-result = ThreeDeconv.deconvolve(img, psf, γ, σ, reg, options=options);
+result = ThreeDeconv.deconvolve(img, psf, γ, σ, reg, options = options)
 
 imsave("deconvoled.tif", result.x)

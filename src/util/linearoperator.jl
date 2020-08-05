@@ -247,9 +247,7 @@ function SecondOrderDifferentialOperator3D(data_shape::NTuple{3,Int}, dir::NTupl
         error("Direction is wrong.")
     end
 
-    if iscuda()
-        diff = cu(diff)
-    end
+    diff = to_gpu_or_not_to_gpu(diff)
 
     dft_mat = rfft3_operator(diff)
     D = dft_mat * diff

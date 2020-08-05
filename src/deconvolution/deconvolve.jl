@@ -89,8 +89,8 @@ function deconvolve(
     result = optimize(optimizer, options)
     result.x = collect(result.x[1:I,1:J,1:K])
 
+    # Release GPU memory
     gc()
 
-    # Release GPU memory
     return result
 end

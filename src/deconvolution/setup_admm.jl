@@ -71,12 +71,10 @@ function setup_optimizer(method::ADMM, y::Array{Float32,3}, psf::Array{Float32,3
 
     psf = fftshift(psf)
 
-    if iscuda()
-        ypad = cu(ypad)
-        mask_in = cu(mask_in)
-        mask_out = cu(mask_out)
-        psf = cu(psf)
-    end
+    ypad = to_gpu_or_not_to_gpu(ypad)
+    mask_in = to_gpu_or_not_to_gpu(mask_in)
+    mask_out = to_gpu_or_not_to_gpu(mask_out)
+    psf = to_gpu_or_not_to_gpu(psf)
 
     H = rfft(psf)
     dft_mat = rfft3_operator(ypad)
