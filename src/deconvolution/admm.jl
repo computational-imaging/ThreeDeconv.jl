@@ -71,17 +71,20 @@ end
 
 function ADMMstate(input_shape::NTuple, output_shape::Vector{Tuple})
     if CUDA.functional()
-        dtype = CuArray{Float32}
+        x = CUDA.zeros(Float32, input_shape)
+        z = [CUDA.zeros(Float32, sh) for sh in output_shape]
+        λ = [CUDA.zeros(Float32, sh) for sh in output_shape]
+        Kx = [CUDA.zeros(Float32, sh) for sh in output_shape]
+        # Allocate an array for convergence check
+        x_prev = CUDA.zeros(Float32, input_shape)
     else
-        dtype = Float32
+        x = zeros(Float32, input_shape)
+        z = [zeros(Float32, sh) for sh in output_shape]
+        λ = [zeros(Float32, sh) for sh in output_shape]
+        Kx = [zeros(Float32, sh) for sh in output_shape]
+        # Allocate an array for convergence check
+        x_prev = zeros(Float32, input_shape)
     end
-    x = zeros(dtype, input_shape)
-    z = [zeros(dtype, sh) for sh in output_shape]
-    λ = [zeros(dtype, sh) for sh in output_shape]
-    Kx = [zeros(dtype, sh) for sh in output_shape]
-
-    # Allocate an array for convergence check
-    x_prev = zeros(dtype, input_shape)
     return ADMMstate(x, z, λ, Kx, x_prev)
 end
 
