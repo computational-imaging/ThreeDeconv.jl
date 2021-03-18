@@ -57,7 +57,7 @@ function setup_optimizer(method::ADMM, y::Array{Float32,3}, psf::Array{Float32,3
     y[y .< -σsq] .= -σsq
     y_shape = size(y)
     data_shape = size(psf)
-    @assert all(y_shape .< data_shape)
+    @assert all(y_shape .<= data_shape)
 
     M, N, L = size(y)
     ypad = zeros(Float32, data_shape)
