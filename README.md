@@ -1,6 +1,7 @@
 # ThreeDeconv.jl
 
-**ThreeDeconv.jl** is a 3D deconvolution software for fluorescence microscopy written in [Julia](https://julialang.org). Currently, it supports Julia v.1.5.0 but might not be going to be supported in the future releases.
+**ThreeDeconv.jl** is a 3D deconvolution software for fluorescence microscopy written in [Julia](https://julialang.org). Currently, it supports Julia v.1.6.0 but may not be going to be supported in the future releases.
+If interested, please feel free to make a PR.
 The detail of the algorithm is available in [our paper](https://www.nature.com/articles/s41598-018-29768-x#Sec21) and [our website](http://www.computationalimaging.org/publications/2d-deconvolution-for-low-photon-count-fluorescence-imaging-scientific-reports-2019/).
 While the deconvolution algorithm is the same as described in the paper, we made some improvements in our software along with the major update of Julia and related packages. Thanks to this update, this package is significantly faster than the speed reported on the paper and deconvoles a 256 x 256 x 57 image in 5 seconds!  Please refer to [NEWS.md](NEWS.md) to catch up the updates.
 
