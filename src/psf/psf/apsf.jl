@@ -90,7 +90,13 @@ function num_observations(model::PointSpreadFunctionModel)
     return Int64(model.num_observations)
 end
 
-function atf(model::PointSpreadFunctionModel, p, theta = Float64[]; na_limit = true, apply_tilt = true)
+function atf(
+    model::PointSpreadFunctionModel,
+    p,
+    theta = Float64[];
+    na_limit = true,
+    apply_tilt = true,
+)
     error("The atf() method is not implemented for this model type.")
 end
 
@@ -118,39 +124,43 @@ Here, p = (x,y,z) is a tuple containing the point generating this PSF.
 """
 function estimate_psf_size(model::PointSpreadFunctionModel, p)
 
-        # Check length and unpack p
-        assert(length(p) == 3)
-        x,y,z = p
+    # Check length and unpack p
+    assert(length(p) == 3)
+    x, y, z = p
 
-        objective_theta = asin(model.recipe.objective_na / model.recipe.medium_index)
-        aperture_diameter = abs( 2 * z * tan(objective_theta) )
-        rayleigh_limit = model.recipe.wavelength / (2 * model.recipe.objective_na)
+    objective_theta = asin(model.recipe.objective_na / model.recipe.medium_index)
+    aperture_diameter = abs(2 * z * tan(objective_theta))
+    rayleigh_limit = model.recipe.wavelength / (2 * model.recipe.objective_na)
 
-        # Choose a PSF size that comfortably fits the full PSF, with special
-        # handling for when z = 0. (The min size is 8 * rayleigh_limit,
-        # otherwise it is 2 * aperture_diameter.)
-        final_diameter_m = max(8*rayleigh_limit, 2*aperture_diameter)
-        return final_diameter_m
+    # Choose a PSF size that comfortably fits the full PSF, with special
+    # handling for when z = 0. (The min size is 8 * rayleigh_limit,
+    # otherwise it is 2 * aperture_diameter.)
+    final_diameter_m = max(8 * rayleigh_limit, 2 * aperture_diameter)
+    return final_diameter_m
 end
 
-function optimal_sampling(model::PointSpreadFunctionModel, sim_size_m; oversampling = nothing)
-        """
-        Given a desired simulation size, this function returns a sampling
-        rate (in pixels) that will yield an accurate wave optics simulation.
+function optimal_sampling(
+    model::PointSpreadFunctionModel,
+    sim_size_m;
+    oversampling = nothing,
+)
+    """
+    Given a desired simulation size, this function returns a sampling
+    rate (in pixels) that will yield an accurate wave optics simulation.
 
-        Note that this sampling rate is only an estimate based on the abbe
-        limit. It may be too high in some cases, and too low in others. Use it
-        as a starting point.
-        """
+    Note that this sampling rate is only an estimate based on the abbe
+    limit. It may be too high in some cases, and too low in others. Use it
+    as a starting point.
+    """
 
-        if oversampling == nothing
-            oversampling = 1
-        end
+    if oversampling == nothing
+        oversampling = 1
+    end
 
-        # We use the abbe limit as an estimate of the optimal sampling rate. We
-        # recommend sampling at 2x the Abbe limit.
-        abbe_limit = model.recipe.wavelength / (2. * model.recipe.objective_na);
-    return sim_size_m / (2*abbe_limit) * oversampling
+    # We use the abbe limit as an estimate of the optimal sampling rate. We
+    # recommend sampling at 2x the Abbe limit.
+    abbe_limit = model.recipe.wavelength / (2.0 * model.recipe.objective_na)
+    return sim_size_m / (2 * abbe_limit) * oversampling
 end
 
 # --------------------------------------------------------------------------
@@ -169,7 +179,13 @@ to sampling problems if a large tilt (due to a large x or y translation)
 exceeded the nyquist sampling rate of the back aperture. For general
 translations which may be large, this method is more robust.
 """
-function translate_apsf(sim_size_m, sim_size_px, apsf::AbstractArray{T, 2}, dx, dy) where T<:Number
+function translate_apsf(
+    sim_size_m,
+    sim_size_px,
+    apsf::AbstractArray{T,2},
+    dx,
+    dy,
+) where {T<:Number}
     sample_period = sim_size_m / sim_size_px
 
     # Use 2D interpolation to shift the translationally invariant microscope PSF
@@ -177,9 +193,11 @@ function translate_apsf(sim_size_m, sim_size_px, apsf::AbstractArray{T, 2}, dx, 
     apsf_imag_interp = interpolate(imag(apsf), BSpline(Interpolations.Linear()))
 
     result = zeros(eltype(apsf), size(apsf))
-    for c in 1:size(apsf,2)
-        for r in 1:size(apsf,1)
-            result[r,c] = apsf_real_interp(r + dy/sample_period, c - dx/sample_period) + im * apsf_imag_interp(r + dy/sample_period, c - dx/sample_period)
+    for c = 1:size(apsf, 2)
+        for r = 1:size(apsf, 1)
+            result[r, c] =
+                apsf_real_interp(r + dy / sample_period, c - dx / sample_period) +
+                im * apsf_imag_interp(r + dy / sample_period, c - dx / sample_period)
         end
     end
     return result
@@ -193,11 +211,16 @@ translate_apsf() function below.
 
 fx, fy must be in 'normalized' cartesian coordinates (see fourier_plane_meshgrid()).
 """
-function translation_mask(dx, dy, fx::Array{T, 2}, fy::Array{T, 2},
-                          objective_na::Float64,
-                          wavelength::Float64) where T<:AbstractFloat
+function translation_mask(
+    dx,
+    dy,
+    fx::Array{T,2},
+    fy::Array{T,2},
+    objective_na::Float64,
+    wavelength::Float64,
+) where {T<:AbstractFloat}
     result = Array{ComplexF32}(size(fx))
-    omega = -2. * im * pi * objective_na/wavelength
+    omega = -2.0 * im * pi * objective_na / wavelength
     for i in eachindex(result)
         result[i] = exp(omega * (fx[i] * dx + fy[i] * (-dy)))
     end
@@ -217,11 +240,17 @@ were to be refocused to a different depth 'dz' in the object.
 
 r, theta must be in 'normalized' polar coordinates (see fourier_plane_meshgrid()).
 """
-function defocus_mask(dz::S, r::AbstractArray{T,2}, theta::AbstractArray{T,2},
-                      objective_na::Float64, wavelength::Float64, medium_index::Float64) where T<:AbstractFloat where S<:Number
-    M,N = size(r)
-    k = medium_index/wavelength
-    omega = T(k^2) .- T(objective_na/wavelength)^2 * r.^2
+function defocus_mask(
+    dz::S,
+    r::AbstractArray{T,2},
+    theta::AbstractArray{T,2},
+    objective_na::Float64,
+    wavelength::Float64,
+    medium_index::Float64,
+) where {T<:AbstractFloat} where {S<:Number}
+    M, N = size(r)
+    k = medium_index / wavelength
+    omega = T(k^2) .- T(objective_na / wavelength)^2 * r .^ 2
 
     # Ensure we don't try to take the sqrt() of a negative number. This should
     # only happen outside the boundary of the aperture, so this check amounts to
@@ -231,7 +260,7 @@ function defocus_mask(dz::S, r::AbstractArray{T,2}, theta::AbstractArray{T,2},
     # Since CuArrays.jl doesn't have a function to compute exp(ComplexFloat),
     # we manually compute it.
     phi = T(-2π * dz) * sqrt.(max.(omega, 0))
-    phase =  (cos.(phi) + 1im .* sin.(phi)) .* binary_mask
+    phase = (cos.(phi) + 1im .* sin.(phi)) .* binary_mask
     return phase
 end
 
@@ -246,17 +275,22 @@ implements eqn. 6.3.7 from Min Gu's "Advanced Optical Imaging Theory"
 
 r, theta must be in "normalized" polar coordinates (see fourier_plane_meshgrid()).
 """
-function abbe_sine_apodization(rho::Array{T}, theta::Array{T}, objective_na::AbstractFloat, medium_index::AbstractFloat) where T<:AbstractFloat
+function abbe_sine_apodization(
+    rho::Array{T},
+    theta::Array{T},
+    objective_na::AbstractFloat,
+    medium_index::AbstractFloat,
+) where {T<:AbstractFloat}
 
     result = zeros(ComplexF32, size(rho))
-    omega = objective_na/medium_index
+    omega = objective_na / medium_index
     for i in eachindex(rho)
         if rho[i] <= 1.0
             alpha = asin(omega * rho[i])    # Gross eq. 21-3 and 21-4
-            apodization = sqrt(cos(alpha))                # Gu eq. 6.3.10
-            result[i] = apodization + 0. * im
+            apodization = 1 / sqrt(cos(alpha))                # Gu eq. 6.3.10
+            result[i] = apodization + 0.0 * im
         else
-            result[i] = 0.
+            result[i] = 0.0
         end
     end
     return result

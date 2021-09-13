@@ -82,14 +82,22 @@ z offsets.
            equations.  Off by default since this makes the intensities very large, which
            can lead to numerical problems.  Intensities are not really calibrated here anyway.
 """
-function DebyeModel(recipe::OpticalRecipe,
-                    sim_size_m::Float64, sim_size_px::Int64;
-                    include_intensity_scalefactor::Bool = false)
+function DebyeModel(
+    recipe::OpticalRecipe,
+    sim_size_m::Float64,
+    sim_size_px::Int64;
+    include_intensity_scalefactor::Bool = false,
+)
 
     num_observations = 1
 
-    return DebyeModel(recipe, sim_size_m, sim_size_px,
-                      num_observations, include_intensity_scalefactor)
+    return DebyeModel(
+        recipe,
+        sim_size_m,
+        sim_size_px,
+        num_observations,
+        include_intensity_scalefactor,
+    )
 
 end # DebyeModel constructor
 
@@ -107,9 +115,9 @@ Allows numerical integration of complex valued functions.  The real and imaginar
 function are integrated seperately and then combined together.
 """
 function complex_quadrature(func, a, b)
-    real_integral, err = quadgk(x -> real(func(x)), a, b, rtol=1e-6, atol=1e-9)
-    imag_integral, err = quadgk(x -> imag(func(x)), a, b, rtol=1e-6, atol=1e-9)
-    return real_integral + 1im*imag_integral
+    real_integral, err = quadgk(x -> real(func(x)), a, b, rtol = 1e-6, atol = 1e-9)
+    imag_integral, err = quadgk(x -> imag(func(x)), a, b, rtol = 1e-6, atol = 1e-9)
+    return real_integral + 1im * imag_integral
 end
 
 """
@@ -117,12 +125,12 @@ The Fresnel integral function is suitable for low numerical aperture (eqn.
 3.4.15). This is an approximation of the full Debye function below.
 """
 function fresnel_integrand_fn(rho::Float64, u::Float64, v::Float64)
-    return exp(1im * u/2 * rho.^2) * besselj(0, rho * v) * 2 * pi .* rho
+    return exp(1im * u / 2 * rho .^ 2) * besselj(0, rho * v) * 2 * pi .* rho
 end
 
 function fresnel_apsf_fn(u::Float64, v::Float64, alpha_o::Float64)
     cmplx_integral = complex_quadrature(rho -> fresnel_integrand_fn(rho, u, v), 0.0, 1.0)
-    return exp( -1im * u / ( 4*sin(alpha_o/2)^2 ) ) * cmplx_integral;
+    return exp(-1im * u / (4 * sin(alpha_o / 2)^2)) * cmplx_integral
 end
 
 
@@ -133,13 +141,20 @@ We use a abbe sine apodization function here: P(theta) = P(r) * sqrt(cos(theta))
 """
 function debye_integrand_fn(theta::Float64, alpha::Float64, u::Float64, v::Float64)
     apodization = sqrt(cos(theta))       # Abbe sine apodization
-    return apodization * exp(1im * u * sin(theta/2).^2 /
-                             (2 * sin(alpha/2).^2) ) .* besselj(0, sin(theta)/sin(alpha)*v).*sin(theta);
+    return apodization * exp(1im * u * sin(theta / 2) .^ 2 / (2 * sin(alpha / 2) .^ 2)) .*
+           besselj(0, sin(theta) / sin(alpha) * v) .* sin(theta)
 end
 
-function debye_apsf_fn(u::Float64, v::Float64, alpha_o::Float64, k::Float64, z_image::Float64)
-    cmplx_integral = complex_quadrature(theta -> debye_integrand_fn(theta, alpha_o, u, v), 0.0, alpha_o)
-    return 1im * exp( -1im * k * z_image ) * cmplx_integral;
+function debye_apsf_fn(
+    u::Float64,
+    v::Float64,
+    alpha_o::Float64,
+    k::Float64,
+    z_image::Float64,
+)
+    cmplx_integral =
+        complex_quadrature(theta -> debye_integrand_fn(theta, alpha_o, u, v), 0.0, alpha_o)
+    return 1im * exp(-1im * k * z_image) * cmplx_integral
 end
 
 """
@@ -156,13 +171,13 @@ Compute the amplitude point spread function.
     apsf - 2D image of the APSF on the image sensor
 """
 function apsf(model::DebyeModel, p, theta = Float64[])
-    x,y,z = p   # unpack p
+    x, y, z = p   # unpack p
 
     sample_period = model.sim_size_m / model.sim_size_px
     f_objective = model.recipe.f_tubelens / model.recipe.objective_mag          # Objective focal length
     d1 = f_objective                                                            # d1 = f1 ?? (I'm not sure of this...)
     alpha_o = asin(model.recipe.objective_na / model.recipe.medium_index)       # Object side numerical aperture angle
-    k = model.recipe.medium_index * 2. * pi / model.recipe.wavelength           # Wave number, with medium_index factored in
+    k = model.recipe.medium_index * 2.0 * pi / model.recipe.wavelength           # Wave number, with medium_index factored in
 
     # Compute the Fresnel number of the objective at this z depth.
     a = model.recipe.objective_na / model.recipe.medium_index * f_objective
@@ -172,38 +187,40 @@ function apsf(model::DebyeModel, p, theta = Float64[])
     # The PSF is radially symmetric, so we will convert a set of cartesian
     # coordinates to polar coordinates and use those below to interpolate
     # radial coordinates and produce a 2D image.
-    x_ticks = range(-model.sim_size_m/2. + sample_period/2.,
-                    stop=model.sim_size_m/2. - sample_period/2.,
-                    length=model.sim_size_px)
+    x_ticks = range(
+        -model.sim_size_m / 2.0 + sample_period / 2.0,
+        stop = model.sim_size_m / 2.0 - sample_period / 2.0,
+        length = model.sim_size_px,
+    )
     X, Y = WaveOptics.meshgrid(x_ticks, x_ticks)
-    R = sqrt.(X.^2 + Y.^2)
+    R = sqrt.(X .^ 2 + Y .^ 2)
     max_r = maximum(R)
 
     # Create a lookup table of PSF values as a function of radius. Sample at
     # 2x the cartesian sampling rate to make sure we can intepolate back to
     # a cartesian grid without introducing artifacts.
-    dr = model.sim_size_m / (2. * model.sim_size_px)
+    dr = model.sim_size_m / (2.0 * model.sim_size_px)
     rho = 0:dr:max_r+sample_period/2
 
     # Compute the APSF for each element of the lookup table.
     apsf_vals = zeros(ComplexF32, size(rho))
-    z_image = 0.
+    z_image = 0.0
     z_object = z
 
     # Set intensity scale factor
-    scale_factor = 1.
+    scale_factor = 1.0
     if (fresnel_number < 1.0) && model.include_intensity_scalefactor
-        scale_factor = M / (d1^2. * wavelength^2)
+        scale_factor = M / (d1^2.0 * wavelength^2)
     end
 
     if (fresnel_number >= 1.0) && model.include_intensity_scalefactor
-        scale_factor = 2. * pi / wavelength
+        scale_factor = 2.0 * pi / wavelength
     end
 
-    for i in 1:length(rho)
+    for i = 1:length(rho)
         # Normalized optical coordinates, Eqns. 6.2.16
-        v = k * rho[i] * sin(alpha_o);           # Radial (transverse) optical coordinate
-        u = 4 * k * z_object * sin(alpha_o/2)^2; # Axial optical coordinate
+        v = k * rho[i] * sin(alpha_o)           # Radial (transverse) optical coordinate
+        u = 4 * k * z_object * sin(alpha_o / 2)^2 # Axial optical coordinate
 
         if fresnel_number < 1.0
             apsf_vals[i] = scale_factor * fresnel_apsf_fn(u, v, alpha_o)
@@ -214,9 +231,13 @@ function apsf(model::DebyeModel, p, theta = Float64[])
 
     # Interpolate to populate the image.
     apsf_img_real = Interpolations.scale(
-        interpolate(real(apsf_vals), BSpline(Quadratic(Line(Interpolations.OnCell())))), rho)
+        interpolate(real(apsf_vals), BSpline(Quadratic(Line(Interpolations.OnCell())))),
+        rho,
+    )
     apsf_img_imag = Interpolations.scale(
-        interpolate(imag(apsf_vals), BSpline(Quadratic(Line(Interpolations.OnCell())))), rho)
+        interpolate(imag(apsf_vals), BSpline(Quadratic(Line(Interpolations.OnCell())))),
+        rho,
+    )
 
 
     # Interpolate

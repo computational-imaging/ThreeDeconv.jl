@@ -45,7 +45,14 @@
 # __END_LICENSE__
 
 
-function setup_optimizer(method::ADMM, y::Array{Float32,3}, psf::Array{Float32,3}, σsq::Float32, ν::Float32, ρ::Float32)
+function setup_optimizer(
+    method::ADMM,
+    y::Array{Float32,3},
+    psf::Array{Float32,3},
+    σsq::Float32,
+    ν::Float32,
+    ρ::Float32,
+)
     num_clip = sum(y .< -σsq)
     if num_clip > 0
         ratio = num_clip / length(y) * 100
@@ -54,7 +61,7 @@ function setup_optimizer(method::ADMM, y::Array{Float32,3}, psf::Array{Float32,3
         println("No clipping performed.")
     end
 
-    y[y .< -σsq] .= -σsq
+    y[y.<-σsq] .= -σsq
     y_shape = size(y)
     data_shape = size(psf)
     @assert all(y_shape .<= data_shape)
@@ -64,7 +71,7 @@ function setup_optimizer(method::ADMM, y::Array{Float32,3}, psf::Array{Float32,3
     ypad[1:M, 1:N, 1:L] .= y
 
     mask_in = zeros(Bool, data_shape)
-    mask_in[1:M,1:N,1:L] .= true
+    mask_in[1:M, 1:N, 1:L] .= true
     mask_out = .!mask_in
 
     κ = ν / ρ
@@ -81,49 +88,77 @@ function setup_optimizer(method::ADMM, y::Array{Float32,3}, psf::Array{Float32,3
     idft_mat = dft_mat'
 
     # Image formation operator
-    K_1 = LinearOperator(data_shape, data_shape,
+    K_1 = LinearOperator(
+        data_shape,
+        data_shape,
         x -> idft_mat * (H .* (dft_mat * x)),
-        x -> idft_mat * (conj.(H) .* (dft_mat * x)), false, Float32)
+        x -> idft_mat * (conj.(H) .* (dft_mat * x)),
+        false,
+        Float32,
+    )
 
     # Identity operator
     K_2 = IdentityOperator(data_shape)
 
-    K_3, Dxx = SecondOrderDifferentialOperator3D(data_shape, (2,2))
+    K_3, Dxx = SecondOrderDifferentialOperator3D(data_shape, (2, 2))
 
-    K_4, Dyy = SecondOrderDifferentialOperator3D(data_shape, (1,1))
+    K_4, Dyy = SecondOrderDifferentialOperator3D(data_shape, (1, 1))
 
-    K_5, Dzz = SecondOrderDifferentialOperator3D(data_shape, (3,3))
+    K_5, Dzz = SecondOrderDifferentialOperator3D(data_shape, (3, 3))
 
     # Dxy + Dyx = √2 * Dxy = Dxy_2
-    K_6, Dxy_2 = SecondOrderDifferentialOperator3D(data_shape, (1,2))
+    K_6, Dxy_2 = SecondOrderDifferentialOperator3D(data_shape, (1, 2))
 
-    K_7, Dxz_2 = SecondOrderDifferentialOperator3D(data_shape, (1,3))
+    K_7, Dxz_2 = SecondOrderDifferentialOperator3D(data_shape, (1, 3))
 
-    K_8, Dyz_2 = SecondOrderDifferentialOperator3D(data_shape, (2,3))
+    K_8, Dyz_2 = SecondOrderDifferentialOperator3D(data_shape, (2, 3))
 
     K = StackedLinearOperator([K_1, K_2, K_3, K_4, K_5, K_6, K_7, K_8])
 
-    update_x! = function(x::T, z::Vector{T}, λ::Vector{T}) where T<:AbstractArray{Float32,3}
-        Z = [dft_mat * (z_j .- λ_j) for (z_j, λ_j) in zip(z, λ)]
-        tmp = (conj.(H) .* Z[1] .+ Z[2] .+
-               conj.(Dxx) .* Z[3] .+ conj.(Dyy) .* Z[4].+
-               conj.(Dzz) .* Z[5] .+ conj.(Dxy_2) .* Z[6] .+
-               conj.(Dxz_2) .* Z[7] .+ conj.(Dyz_2) .* Z[8]) ./
-              (abs2.(H) .+ abs2.(Dxx) .+ abs2.(Dyy) .+ abs2.(Dzz) .+
-               abs2.(Dxy_2) .+ abs2.(Dxz_2) .+ abs2.(Dyz_2) .+ 1.0f0)
+    if method.scale_problem
+        @show s = Float32(1 / sqrt(opnorm(K)))
+    else
+        s = 1.0f0
+    end
+
+    update_x! = function (
+        x::T,
+        z::Vector{T},
+        λ::Vector{T},
+        s::Float32,
+    ) where {T<:AbstractArray{Float32,3}}
+        Z = [dft_mat * (z_j .- λ_j) ./ s^2 for (z_j, λ_j) in zip(z, λ)]
+        tmp =
+            (
+                conj.(H) .* Z[1] .+ Z[2] .+ conj.(Dxx) .* Z[3] .+ conj.(Dyy) .* Z[4] .+
+                conj.(Dzz) .* Z[5] .+ conj.(Dxy_2) .* Z[6] .+ conj.(Dxz_2) .* Z[7] .+
+                conj.(Dyz_2) .* Z[8]
+            ) ./ (
+                abs2.(H) .+ abs2.(Dxx) .+ abs2.(Dyy) .+ abs2.(Dzz) .+ abs2.(Dxy_2) .+
+                abs2.(Dxz_2) .+ abs2.(Dyz_2) .+ 1.0f0
+            )
         x .= idft_mat * tmp
     end
 
-    update_z! = function(Kx::Vector{T}, z::Vector{T}, λ::Vector{T}) where T<:AbstractArray{Float32,3}
-        v = [Kx[i] .+ λ[i] for i in 1:length(z)]
-        tmp = (-1.0f0 .+ ρ .* (v[1] .- σsq)) ./ 2ρ
-        z[1] .= mask_out .* v[1] .+ mask_in .* (tmp .+ sqrt.(max.(tmp.^2 .+ (ypad .+ (ρ * σsq) .* v[1]) ./ ρ, 0.0f0)))
+    update_z! = function (
+        Kx::Vector{T},
+        z::Vector{T},
+        λ::Vector{T},
+        s::Float32,
+    ) where {T<:AbstractArray{Float32,3}}
+        v = [s^2 .* Kx[i] .+ λ[i] for i = 1:length(z)]
+        tmp = (-1.0f0 / s .+ ρ .* (v[1] .- σsq)) ./ 2ρ
+        z[1] .=
+            mask_out .* v[1] .+
+            mask_in .*
+            (tmp .+ sqrt.(max.(tmp .^ 2 .+ (ypad .+ (ρ * σsq) .* v[1]) ./ ρ, 0.0f0)))
         z[2] .= max.(v[2], 0.0f0)
-        v_norm = sqrt.(max.(sum(v[i].^2 for i in 3:8), floatmin(Float32)))
-        for i in 1:6
-            z[i + 2] .= block_soft_threshold.(v[i + 2], v_norm, κ)
+        v_norm = sqrt.(max.(sum(v[i] .^ 2 for i = 3:8), floatmin(Float32)))
+        for i = 1:6
+            z[i+2] .= block_soft_threshold.(v[i+2], v_norm, κ / s)
         end
     end
 
-    optimizer = initialize_optimizer(method, K, update_x!, update_z!)
+    optimizer = initialize_optimizer(method, K, update_x!, update_z!, s)
+    return optimizer
 end

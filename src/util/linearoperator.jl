@@ -47,6 +47,7 @@
 
 import Base.*, Base.eltype, Base.size
 import LinearAlgebra.issymmetric, LinearAlgebra.adjoint
+using LinearMaps, Arpack
 
 abstract type AbstractLinearOperator end
 
@@ -55,15 +56,12 @@ function *(op::AbstractLinearOperator, v::AbstractArray)
     return op.forward(v)
 end
 
-# # This function is for computing eigenvalue by eigs.
-# # I am still not sure what is the best way to reduce dimension.
-# function A_mul_B!(Y::AbstractArray, A::AbstractLinearOperator, B::AbstractArray)
-#     for i in 1:size(B,2)
-#         Ab = A * B[:,i] # This sometimes return an array of size (N, 1)
-#         Ab_squeezed = length(size(Ab)) == 2 ? squeeze(Ab,2) : Ab
-#         Y[:,i] .= Ab[:]#_squeezed
-#     end
-# end
+function opnorm(A::AbstractLinearOperator)
+    f(x) = A.adjoint(A.forward(reshape(x, A.input_shape)))[:]
+    AtA = LinearMap(f, f, A.input_size, A.input_size, issymmetric = true, isposdef = true)
+    λ, _ = Arpack.eigs(AtA; nev = 1, which = :LM)
+    return sqrt(λ[1])
+end
 
 function size(op::AbstractLinearOperator)
     return (op.output_size, op.input_size)
@@ -99,22 +97,22 @@ mutable struct LinearOperator <: AbstractLinearOperator
 end
 
 function LinearOperator(
-        input_shape::Tuple,
-        output_shape::Tuple,
-        forward::Function,
-        adjoint::Function,
-        symmetric::Bool = false,
-        eltype::DataType = Float32,
-    )
+    input_shape::Tuple,
+    output_shape::Tuple,
+    forward::Function,
+    adjoint::Function,
+    symmetric::Bool = false,
+    eltype::DataType = Float32,
+)
     LinearOperator(
         input_shape,
         output_shape,
-        prod( s for s in input_shape ),
-        prod( s for s in output_shape ),
+        prod(s for s in input_shape),
+        prod(s for s in output_shape),
         forward,
         adjoint,
         symmetric,
-        eltype
+        eltype,
     )
 end
 
@@ -127,21 +125,12 @@ function adjoint(op::LinearOperator)
         op.adjoint,
         op.forward,
         op.symmetric,
-        op.eltype
+        op.eltype,
     )
 end
 
 
-function adjointnessCheck(A::LinearOperator)
-    # Check forward and adjoint operations are correctly implemented.
-    x = randn(eltype(A), A.input_shape)
-    forward_output = A.forward(x)
 
-    y = randn(eltype(A), A.output_shape)
-    adjoint_output = A.adjoint(y)
-
-    return vecdot(forward_output, y) ≈ vecdot(x, adjoint_output)
-end
 
 
 mutable struct StackedLinearOperator <: AbstractLinearOperator
@@ -165,30 +154,35 @@ function StackedLinearOperator(linops::AbstractVector{LinearOperator})
     output_shape = [linop.output_shape for linop in linops]
 
     input_size = linops[1].input_size
-    output_size = sum( linop.input_size for linop in linops )
+    output_size = sum(linop.input_size for linop in linops)
 
-    forward! = function(input, output::Vector)
-                # Might be better to change it to pmap
-                for j in 1:length(output)
-                    output[j] .= linops[j].forward(input)
-                end
-            end
+    forward! = function (input, output::Vector)
+        # Might be better to change it to pmap
+        for j = 1:length(output)
+            output[j] .= linops[j].forward(input)
+        end
+    end
 
-    adjoint! = function(input::Vector, output)
-                output .= sum( linops[j].adjoint(input[j]) for j in 1:length(linops) )
-            end
+    adjoint! = function (input::Vector, output)
+        copy!(
+            output,
+            sum(
+                reshape(linops[j].adjoint(input[j]), size(output)) for j = 1:length(linops)
+            ),
+        )
+    end
 
-    forward_stack = function(input)
-                output = [similar(input, dims=sh) for sh in output_shape]
-                forward!(input, output)
-                return output
-            end
+    forward_stack = function (input)
+        output = [similar(input, sh) for sh in output_shape]
+        forward!(input, output)
+        return output
+    end
 
-    adjoint_stack = function(input)
-                output = similar(input, dims=input_shape)
-                adjoint!(input, output)
-                return output
-            end
+    adjoint_stack = function (input)
+        output = similar(input[1], input_shape)
+        adjoint!(input, output)
+        return output
+    end
 
     return StackedLinearOperator(
         linops,
@@ -200,12 +194,11 @@ function StackedLinearOperator(linops::AbstractVector{LinearOperator})
         adjoint!,
         forward_stack,
         adjoint_stack,
-        false
+        false,
     )
 end
 
 
-################################################################################
 function IdentityOperator(data_shape::Tuple)
     return LinearOperator(data_shape, data_shape, copy, copy, true)
 end
@@ -215,34 +208,34 @@ end
 function SecondOrderDifferentialOperator3D(data_shape::NTuple{3,Int}, dir::NTuple{2,Int})
     I, J, K = data_shape
     diff = zeros(Float32, I, J, K)
-    if dir == (1,1)
-        diff[end-1,1,1] =  1.0f0
-        diff[end,1,1]   = -2.0f0
-        diff[1,1,1]     =  1.0f0
-    elseif dir == (2,2)
-        diff[1,end-1,1] =  1.0f0
-        diff[1,end,1]   = -2.0f0
-        diff[1,1,1]     =  1.0f0
-    elseif dir == (3,3)
-        diff[1,1,end-1] =  1.0f0
-        diff[1,1,end]   = -2.0f0
-        diff[1,1,1]     =  1.0f0
-    elseif dir == (1,2) || dir == (2,1)
+    if dir == (1, 1)
+        diff[end-1, 1, 1] = 1.0f0
+        diff[end, 1, 1] = -2.0f0
+        diff[1, 1, 1] = 1.0f0
+    elseif dir == (2, 2)
+        diff[1, end-1, 1] = 1.0f0
+        diff[1, end, 1] = -2.0f0
+        diff[1, 1, 1] = 1.0f0
+    elseif dir == (3, 3)
+        diff[1, 1, end-1] = 1.0f0
+        diff[1, 1, end] = -2.0f0
+        diff[1, 1, 1] = 1.0f0
+    elseif dir == (1, 2) || dir == (2, 1)
         # Absorbing the factor √2 to this operator
-        diff[end-1,end-1,1] =  sqrt(2.0f0)
-        diff[end,1,1]       = -sqrt(2.0f0)
-        diff[1,end,1]       = -sqrt(2.0f0)
-        diff[1,1,1]         =  sqrt(2.0f0)
-    elseif dir == (1,3) || dir == (3,1)
-        diff[end-1,1,end-1] =  sqrt(2.0f0)
-        diff[end,1,1]       = -sqrt(2.0f0)
-        diff[1,1,end]       = -sqrt(2.0f0)
-        diff[1,1,1]         =  sqrt(2.0f0)
-    elseif dir == (2,3) || dir == (3,2)
-        diff[1,end-1,end-1] =  sqrt(2.0f0)
-        diff[1,end,1]       = -sqrt(2.0f0)
-        diff[1,1,end]       = -sqrt(2.0f0)
-        diff[1,1,1]         =  sqrt(2.0f0)
+        diff[end-1, end-1, 1] = sqrt(2.0f0)
+        diff[end, 1, 1] = -sqrt(2.0f0)
+        diff[1, end, 1] = -sqrt(2.0f0)
+        diff[1, 1, 1] = sqrt(2.0f0)
+    elseif dir == (1, 3) || dir == (3, 1)
+        diff[end-1, 1, end-1] = sqrt(2.0f0)
+        diff[end, 1, 1] = -sqrt(2.0f0)
+        diff[1, 1, end] = -sqrt(2.0f0)
+        diff[1, 1, 1] = sqrt(2.0f0)
+    elseif dir == (2, 3) || dir == (3, 2)
+        diff[1, end-1, end-1] = sqrt(2.0f0)
+        diff[1, end, 1] = -sqrt(2.0f0)
+        diff[1, 1, end] = -sqrt(2.0f0)
+        diff[1, 1, 1] = sqrt(2.0f0)
     else
         error("Direction is wrong.")
     end
@@ -253,9 +246,12 @@ function SecondOrderDifferentialOperator3D(data_shape::NTuple{3,Int}, dir::NTupl
     D = dft_mat * diff
     idft_mat = dft_mat'
 
-    D_operator = LinearOperator(data_shape, data_shape,
-                    x -> idft_mat * (D .* (dft_mat * x)),
-                    x -> idft_mat * (conj.(D) .* (dft_mat * x)))
+    D_operator = LinearOperator(
+        data_shape,
+        data_shape,
+        x -> idft_mat * (D .* (dft_mat * x)),
+        x -> idft_mat * (conj.(D) .* (dft_mat * x)),
+    )
 
     return D_operator, D
 end

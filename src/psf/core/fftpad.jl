@@ -52,67 +52,67 @@ Fourier transform (i.e. via the Fourier shift property).  Such a tilt is
 generally undesirable when using the FFT to model the Fourier transforming
 property of an optical system.
 """
-function fftpad(u1::AbstractArray{T,1}) where T
-    padM = Int(ceil(size(u1,1)/2.))
-    temp = zeros(eltype(u1), size(u1,1)*2)
-    temp[padM+1:padM+size(u1,1)] .= u1
+function fftpad(u1::AbstractArray{T,1}) where {T}
+    padM = Int(ceil(size(u1, 1) / 2.0))
+    temp = zeros(eltype(u1), size(u1, 1) * 2)
+    temp[padM+1:padM+size(u1, 1)] .= u1
     return temp
 end
 
-function fftpad(u1::AbstractArray{T,2}) where T
-    padM = Int(ceil(size(u1,1)/2.))
-    padN = Int(ceil(size(u1,2)/2.))
-    temp = zeros(eltype(u1), size(u1,1)*2, size(u1,2)*2)
-    temp[padM+1:padM+size(u1,1), padN+1:padN+size(u1,2)] .= u1 # Zero pad the input
+function fftpad(u1::AbstractArray{T,2}) where {T}
+    padM = Int(ceil(size(u1, 1) / 2.0))
+    padN = Int(ceil(size(u1, 2) / 2.0))
+    temp = zeros(eltype(u1), size(u1, 1) * 2, size(u1, 2) * 2)
+    temp[padM+1:padM+size(u1, 1), padN+1:padN+size(u1, 2)] .= u1 # Zero pad the input
     return temp
 end
 
-function fftpad(u1::AbstractArray{T,3}) where T
-    padM = Int(ceil(size(u1,1)/2.))
-    padN = Int(ceil(size(u1,2)/2.))
-    padK = Int(ceil(size(u1,3)/2.))
-    temp = zeros(eltype(u1), size(u1,1)*2, size(u1,2)*2, size(u1,3)*2)
-    temp[padM+1:padM+size(u1,1), padN+1:padN+size(u1,2), padK+1:padK+size(u1,3)] .= u1 # Zero pad the input
+function fftpad(u1::AbstractArray{T,3}) where {T}
+    padM = Int(ceil(size(u1, 1) / 2.0))
+    padN = Int(ceil(size(u1, 2) / 2.0))
+    padK = Int(ceil(size(u1, 3) / 2.0))
+    temp = zeros(eltype(u1), size(u1, 1) * 2, size(u1, 2) * 2, size(u1, 3) * 2)
+    temp[padM+1:padM+size(u1, 1), padN+1:padN+size(u1, 2), padK+1:padK+size(u1, 3)] .= u1 # Zero pad the input
     return temp
 end
 
 """
 Remove symmetric zero padding.
 """
-function fftunpad(u1::AbstractArray{T,1}) where T
-    M = size(u1,1)
+function fftunpad(u1::AbstractArray{T,1}) where {T}
+    M = size(u1, 1)
     origM = div(M, 2)
-    padM = Int(ceil(origM/2.))
-    return view(u1, padM+1:padM + origM)
+    padM = Int(ceil(origM / 2.0))
+    return view(u1, padM+1:padM+origM)
 end
 
-function fftunpad(u1::AbstractArray{T,2}) where T
-    (M,N) = size(u1)
+function fftunpad(u1::AbstractArray{T,2}) where {T}
+    (M, N) = size(u1)
     origM = div(M, 2)
     origN = div(N, 2)
-    padM = Int(ceil(origM/2.))
-    padN = Int(ceil(origN/2.))
-    return view(u1, padM+1:padM + origM, padN+1:padN+origN)                 # remove zero padding
+    padM = Int(ceil(origM / 2.0))
+    padN = Int(ceil(origN / 2.0))
+    return view(u1, padM+1:padM+origM, padN+1:padN+origN)                 # remove zero padding
 end
 
-function fftunpad(u1::AbstractArray{T,3}) where T
-    (M,N,K) = size(u1)
+function fftunpad(u1::AbstractArray{T,3}) where {T}
+    (M, N, K) = size(u1)
     origM = div(M, 2)
     origN = div(N, 2)
     origK = div(K, 2)
-    padM = Int(ceil(origM/2.))
-    padN = Int(ceil(origN/2.))
-    padK = Int(ceil(origK/2.))
-    return view(u1, padM+1:padM + origM, padN+1:padN+origN, padK+1:padK + origK)                 # remove zero padding
+    padM = Int(ceil(origM / 2.0))
+    padN = Int(ceil(origN / 2.0))
+    padK = Int(ceil(origK / 2.0))
+    return view(u1, padM+1:padM+origM, padN+1:padN+origN, padK+1:padK+origK)                 # remove zero padding
 end
 
-function fftunpad2(u1::AbstractArray{T,3}) where T
-    (M,N,K) = size(u1)
+function fftunpad2(u1::AbstractArray{T,3}) where {T}
+    (M, N, K) = size(u1)
     origM = div(M, 2)
     origN = div(N, 2)
-    padM = Int(ceil(origM/2.))
-    padN = Int(ceil(origN/2.))
-    return view(u1, padM+1:padM + origM, padN+1:padN+origN, 1:K)                 # remove zero padding
+    padM = Int(ceil(origM / 2.0))
+    padN = Int(ceil(origN / 2.0))
+    return view(u1, padM+1:padM+origM, padN+1:padN+origN, 1:K)                 # remove zero padding
 end
 
 #-------------------------------------------------------------------------------------
@@ -123,13 +123,13 @@ Zero pads the FFT up to at least double the size of the original array, or large
 if a nearby larger dimension will have only small prime least common denominators.
 Choosing the dimensions in this way can speed up the FFT algorithm in some cases.
 """
-function fftpad_optimal(u1::AbstractArray{T,2}) where T
-    optimal_shape = (nextprod([2,3,5,7], size(u1,1)*2),
-                     nextprod([2,3,5,7], size(u1,2)*2))
-    padM = Int(ceil(optimal_shape[1]/2. - size(u1,1)/2.))
-    padN = Int(ceil(optimal_shape[2]/2. - size(u1,2)/2.))
+function fftpad_optimal(u1::AbstractArray{T,2}) where {T}
+    optimal_shape =
+        (nextprod([2, 3, 5, 7], size(u1, 1) * 2), nextprod([2, 3, 5, 7], size(u1, 2) * 2))
+    padM = Int(ceil(optimal_shape[1] / 2.0 - size(u1, 1) / 2.0))
+    padN = Int(ceil(optimal_shape[2] / 2.0 - size(u1, 2) / 2.0))
     temp = zeros(eltype(u1), optimal_shape)
-    temp[padM+2:padM+size(u1,1)+1, padN+2:padN+size(u1,2)+1] .= u1 # Zero pad the input in a fashion consistent with direct convolution
+    temp[padM+2:padM+size(u1, 1)+1, padN+2:padN+size(u1, 2)+1] .= u1 # Zero pad the input in a fashion consistent with direct convolution
     return temp
 end
 
@@ -137,11 +137,11 @@ end
 Removes optimal zero padding.  You must supply the original (non-zero padded)
 array shape.
 """
-function fftunpad_optimal(u1::AbstractArray{T,2}, orig_size::Tuple{Int64,Int64}) where T
-    optimal_shape = (nextprod([2,3,5,7], orig_size[1]*2),
-                     nextprod([2,3,5,7], orig_size[2]*2))
-    origM,origN = orig_size
-    padM = Int(ceil(optimal_shape[1]/2. - orig_size[1]/2.))
-    padN = Int(ceil(optimal_shape[2]/2. - orig_size[2]/2.))
-    return view(u1, padM+2:padM + origM+1, padN+2:padN+origN+1)                 # remove zero padding
+function fftunpad_optimal(u1::AbstractArray{T,2}, orig_size::Tuple{Int64,Int64}) where {T}
+    optimal_shape =
+        (nextprod([2, 3, 5, 7], orig_size[1] * 2), nextprod([2, 3, 5, 7], orig_size[2] * 2))
+    origM, origN = orig_size
+    padM = Int(ceil(optimal_shape[1] / 2.0 - orig_size[1] / 2.0))
+    padN = Int(ceil(optimal_shape[2] / 2.0 - orig_size[2] / 2.0))
+    return view(u1, padM+2:padM+origM+1, padN+2:padN+origN+1)                 # remove zero padding
 end

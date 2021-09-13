@@ -51,8 +51,8 @@ This method handles the peculiarities of even vs. odd lengthed FFTs.
 It is meant to behave like np.fft.fftfreq from Python.  
 """
 function fftfreq(n::Int64, d::Number)
-  N = fld(n-1,2)
-  p1 = 0:N
-  p2 = -fld(n,2):-1
-  return [p1; p2]./(d*n)
+    N = fld(n - 1, 2)
+    p1 = 0:N
+    p2 = -fld(n, 2):-1
+    return [p1; p2] ./ (d * n)
 end

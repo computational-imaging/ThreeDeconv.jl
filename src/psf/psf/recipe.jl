@@ -49,8 +49,8 @@ abstract type OpticalRecipe end
 # Aperture code types (instances are defined in the 'aperture' sub-module)
 abstract type CodedAperture end
 
-const MaskParameters = Dict{String, Float64}
-const MaskOptions = Dict{String, Any}
+const MaskParameters = Dict{String,Float64}
+const MaskOptions = Dict{String,Any}
 
 # -------------------------------------------------------------------------------------------
 #                                 Null Coded Aperture
@@ -70,11 +70,19 @@ function NullCodedAperture(mask_parameters::MaskParameters, mask_options)
     return NullCodedAperture("null_phase", MaskParameters(), MaskOptions())
 end
 
-function mask(ap::NullCodedAperture,  coordinates::OpticalCoordinates, parameters = Dict{String, Float64}())
+function mask(
+    ap::NullCodedAperture,
+    coordinates::OpticalCoordinates,
+    parameters = Dict{String,Float64}(),
+)
     return ones(Complex64, size(coordinates.rho))
 end
 
-function jacobian(ap::NullCodedAperture, coordinates::OpticalCoordinates, parameters = Dict{String,Float64}())
+function jacobian(
+    ap::NullCodedAperture,
+    coordinates::OpticalCoordinates,
+    parameters = Dict{String,Float64}(),
+)
     error("No Jacobian defined for NullCodedAperture")
 end
 
@@ -90,8 +98,8 @@ mutable struct WideFieldOpticalRecipe <: OpticalRecipe
     medium_index::Float64
     f_tubelens::Float64
     f_objective::Float64
-    static_aperture_mask
-    dynamic_aperture_mask
+    static_aperture_mask::Any
+    dynamic_aperture_mask::Any
     normalize_intensity::Bool
 end
 
@@ -120,20 +128,27 @@ Generic Optical Recipe for Widefield PSF Models
                recipes, because their absolute intensities cannot be directly compared with this
                arbitrary scaling in effect.
 """
-function WideFieldOpticalRecipe(objective_mag::Number,
-                                objective_na::Float64,
-                                wavelength::Float64,
-                                medium_index::Float64,
-                                f_tubelens::Float64;
-                                static_aperture_mask::CodedAperture = NullCodedAperture(),
-                                dynamic_aperture_mask::CodedAperture = NullCodedAperture(),
-                                normalize_intensity::Bool = false)
+function WideFieldOpticalRecipe(
+    objective_mag::Number,
+    objective_na::Float64,
+    wavelength::Float64,
+    medium_index::Float64,
+    f_tubelens::Float64;
+    static_aperture_mask::CodedAperture = NullCodedAperture(),
+    dynamic_aperture_mask::CodedAperture = NullCodedAperture(),
+    normalize_intensity::Bool = false,
+)
 
-    f_objective = f_tubelens / objective_mag;
-    return WideFieldOpticalRecipe(objective_mag, objective_na,
-                                  wavelength, medium_index,
-                                  f_tubelens, f_objective,
-                                  static_aperture_mask,
-                                  dynamic_aperture_mask,
-                                  normalize_intensity)
+    f_objective = f_tubelens / objective_mag
+    return WideFieldOpticalRecipe(
+        objective_mag,
+        objective_na,
+        wavelength,
+        medium_index,
+        f_tubelens,
+        f_objective,
+        static_aperture_mask,
+        dynamic_aperture_mask,
+        normalize_intensity,
+    )
 end

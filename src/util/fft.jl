@@ -45,32 +45,31 @@
 # __END_LICENSE__
 
 
-const _rfft3_cache =
-    Dict{Tuple{DataType,NTuple{3,Integer}}, LinearOperator}()
+const _rfft3_cache = Dict{Tuple{DataType,NTuple{3,Integer}},LinearOperator}()
 
-function rfft3_operator(x::S)::LinearOperator where S<:Array{T,3} where T<:AbstractFloat
+function rfft3_operator(x::S)::LinearOperator where {S<:Array{T,3}} where {T<:AbstractFloat}
     key = (S, size(x))
     if !haskey(_rfft3_cache, key)
         y = copy(x)
         P = plan_rfft(y, flags = FFTW.MEASURE)
         forward(θ) = P * θ
         adjoint(θ) = P \ θ
-        _rfft3_cache[key] =
-            LinearOperator(size(x), size(x), forward, adjoint, false, T)
+        _rfft3_cache[key] = LinearOperator(size(x), size(x), forward, adjoint, false, T)
     end
     return _rfft3_cache[key]
 end
 
 
-function rfft3_operator(x::S)::LinearOperator where S<:CuArray{T,3} where T<:AbstractFloat
+function rfft3_operator(
+    x::S,
+)::LinearOperator where {S<:CuArray{T,3}} where {T<:AbstractFloat}
     key = (S, size(x))
     if !haskey(_rfft3_cache, key)
         y = copy(x)
         P = plan_rfft(y)
         forward(θ) = P * θ
         adjoint(θ) = P \ θ
-        _rfft3_cache[key] =
-            LinearOperator(size(x), size(x), forward, adjoint, false, T)
+        _rfft3_cache[key] = LinearOperator(size(x), size(x), forward, adjoint, false, T)
     end
     return _rfft3_cache[key]
 end
