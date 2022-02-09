@@ -56,13 +56,18 @@
 Helper function to quickly transform from the image plane to the aperture
 plane via a Fourier Transform.
 """
-function im_to_ap(im::S, input_size_m::Float64, focal_len::Float64, wavelength::Float64)::Tuple{Float64,S} where S<:AbstractArray{T,2} where T<:Number
+function im_to_ap(
+    im::S,
+    input_size_m::Float64,
+    focal_len::Float64,
+    wavelength::Float64,
+)::Tuple{Float64,S} where {S<:AbstractArray{T,2}} where {T<:Number}
 
     # A lens Fourier transform may magnify or demagnify the image depending on the focal length.
-    sim_size_px = size(im,1)
+    sim_size_px = size(im, 1)
     delta_x = input_size_m / sim_size_px
-    Lf = 1. / delta_x;
-    delta_f = 1. / input_size_m;
+    Lf = 1.0 / delta_x
+    delta_f = 1.0 / input_size_m
 
     output_size_m = focal_len * wavelength * Lf
 
@@ -71,7 +76,7 @@ function im_to_ap(im::S, input_size_m::Float64, focal_len::Float64, wavelength::
     # scales equally in the forward and inverse directions, we can use the
     # unscaled inverse FFT ( bfft() ) and apply the scaling factor of
     # 1/sqrt(length(x)) ourselves.
-    unitary_scaling_factor::T = T(1/sqrt(length(im)))
+    unitary_scaling_factor::T = T(1 / sqrt(length(im)))
     return (output_size_m, unitary_scaling_factor .* fftshift(fft(ifftshift(im))))
 end
 
@@ -80,13 +85,18 @@ end
 Helper function to quickly transform from the aperture plane to the image
 plane via a Fourier Transform.
 """
-function ap_to_im(ap::S, input_size_m::Float64, focal_len::Float64, wavelength::Float64)::Tuple{Float64,S} where S<:AbstractArray{T,2} where T<:Number
+function ap_to_im(
+    ap::S,
+    input_size_m::Float64,
+    focal_len::Float64,
+    wavelength::Float64,
+)::Tuple{Float64,S} where {S<:AbstractArray{T,2}} where {T<:Number}
 
     # A lens Fourier transform may magnify or demagnify the image depending on the focal length.
-    sim_size_px = size(ap,1)
+    sim_size_px = size(ap, 1)
     delta_x = input_size_m / sim_size_px
-    Lf = 1. / delta_x;
-    delta_f = 1. / input_size_m;
+    Lf = 1.0 / delta_x
+    delta_f = 1.0 / input_size_m
 
     output_size_m = focal_len * wavelength * Lf
 
@@ -95,18 +105,23 @@ function ap_to_im(ap::S, input_size_m::Float64, focal_len::Float64, wavelength::
     # scales equally in the forward and inverse directions, we can use the
     # unscaled inverse FFT ( bfft() ) and apply the scaling factor of
     # 1/sqrt(length(x)) ourselves.
-    unitary_scaling_factor = 1/sqrt(prod(size(ap)))
+    unitary_scaling_factor = 1 / sqrt(prod(size(ap)))
     out = unitary_scaling_factor .* bfft(ap)
     return (output_size_m, out)
 end
 
-function ap_to_im(ap::S, input_size_m::Float64, focal_len::Float64, wavelength::Float64)::Tuple{Float64,S} where S<:AbstractArray{T,3} where T<:Number
+function ap_to_im(
+    ap::S,
+    input_size_m::Float64,
+    focal_len::Float64,
+    wavelength::Float64,
+)::Tuple{Float64,S} where {S<:AbstractArray{T,3}} where {T<:Number}
 
     # A lens Fourier transform may magnify or demagnify the image depending on the focal length.
-    sim_size_px = size(ap,1)
+    sim_size_px = size(ap, 1)
     delta_x = input_size_m / sim_size_px
-    Lf = 1. / delta_x;
-    delta_f = 1. / input_size_m;
+    Lf = 1.0 / delta_x
+    delta_f = 1.0 / input_size_m
 
     output_size_m = focal_len * wavelength * Lf
 
@@ -115,8 +130,8 @@ function ap_to_im(ap::S, input_size_m::Float64, focal_len::Float64, wavelength::
     # scales equally in the forward and inverse directions, we can use the
     # unscaled inverse FFT ( bfft() ) and apply the scaling factor of
     # 1/sqrt(length(x)) ourselves.
-    unitary_scaling_factor = 1/sqrt(prod(size(ap)[1:2]))
-    out = unitary_scaling_factor .* bfft(ap,[1,2])
+    unitary_scaling_factor = 1 / sqrt(prod(size(ap)[1:2]))
+    out = unitary_scaling_factor .* bfft(ap, [1, 2])
     return (output_size_m, out)
 end
 
@@ -124,15 +139,15 @@ end
 """
 Simpler version that doesn't return output scaling (useful if you just want to perform an optical FFT)
 """
-function im_to_ap_xform(im::AbstractArray{T,2}) where T<:Number
-    output_size_m, ap = im_to_ap(im, 1., 1., 1.)
+function im_to_ap_xform(im::AbstractArray{T,2}) where {T<:Number}
+    output_size_m, ap = im_to_ap(im, 1.0, 1.0, 1.0)
     return ap
 end
 
 """
 Simpler version that doesn't return output scaling (useful if you just want to perform an optical FFT)
 """
-function ap_to_im_xform(ap::AbstractArray{T,2}) where T<:Number
-    output_size_m, im = ap_to_im(ap, 1., 1., 1.)
+function ap_to_im_xform(ap::AbstractArray{T,2}) where {T<:Number}
+    output_size_m, im = ap_to_im(ap, 1.0, 1.0, 1.0)
     return im
 end

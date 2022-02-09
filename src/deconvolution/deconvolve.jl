@@ -67,27 +67,34 @@ function deconvolve(
     γ::Real, # camera gain
     σ::Real, # camera readnoise std
     reg::Real, # regularization parameter
-    method::ADMM=ADMM();
-    options::DeconvolutionOptions
-    ) where T<:Real
-    
+    method::ADMM = ADMM();
+    options::DeconvolutionOptions,
+) where {T<:Real}
+
     @assert all(.!isnan.(img))
     @assert γ > 0
     @assert σ > 0
 
-    I,J,K = size(img)
+    I, J, K = size(img)
 
     # Convert the unit to photoelectron number
     std_img = img ./ γ
     std_σ = σ / γ
 
     if isnan(method.ρ)
-        method.ρ = 6000. * reg / maximum(std_img)
+        method.ρ = 6000.0 * reg / maximum(std_img)
     end
 
-    optimizer = setup_optimizer(method, Float32.(std_img), psf, Float32(σ^2), Float32(reg), Float32(method.ρ))
+    optimizer = setup_optimizer(
+        method,
+        Float32.(std_img),
+        psf,
+        Float32(std_σ^2),
+        Float32(reg),
+        Float32(method.ρ),
+    )
     result = optimize(optimizer, options)
-    result.x = collect(result.x[1:I,1:J,1:K])
+    result.x = collect(result.x[1:I, 1:J, 1:K])
 
     # Release GPU memory
     gc()

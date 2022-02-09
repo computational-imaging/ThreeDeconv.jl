@@ -55,8 +55,8 @@ struct ParametricNoiseModel
     σ_hat::Vector{Float64}
     model::Function
     model_init::Function
-    params
-    params_init
+    params::Any
+    params_init::Any
 end
 
 struct localEstimation{T<:AbstractFloat}
@@ -66,7 +66,12 @@ struct localEstimation{T<:AbstractFloat}
     n::Int
 end
 
-function foi_noiseestimation(z::AbstractArray{Float32}; τ=0.2, maxnum_pairs::Int, verbose::Bool=false)
+function foi_noiseestimation(
+    z::AbstractArray{Float32};
+    τ = 0.2,
+    maxnum_pairs::Int,
+    verbose::Bool = false,
+)
     # τ = 0.2 is good to reject a lot of outliers.
 
     @assert maximum(z) <= 1.0
@@ -74,9 +79,9 @@ function foi_noiseestimation(z::AbstractArray{Float32}; τ=0.2, maxnum_pairs::In
 
     # Compute the local sample mean and standard deviation over a smooth region
     println("Computing local noise variance.")
-    num_imgs = size(z,3)
-    z_stack = (z[:,:,i] for i in 1:num_imgs)
-    est_pairs_array = map(x->localnoiseestimation(x, τ)[1], z_stack)
+    num_imgs = size(z, 3)
+    z_stack = (z[:, :, i] for i = 1:num_imgs)
+    est_pairs_array = map(x -> localnoiseestimation(x, τ)[1], z_stack)
     est_pairs = vcat(est_pairs_array...)
 
     println("Initializing parameters by least-squares.")
@@ -92,7 +97,12 @@ function foi_noiseestimation(z::AbstractArray{Float32}; τ=0.2, maxnum_pairs::In
     println("Starting likelihood maximization.")
 
     likelihood0(x::Vector{Float64}) = nonclipped_negloglikelihood(x, est_pairs)
-    result = Optim.optimize(likelihood0, ab_init, Optim.NelderMead(), Optim.Options(show_trace = verbose))
+    result = Optim.optimize(
+        likelihood0,
+        ab_init,
+        Optim.NelderMead(),
+        Optim.Options(show_trace = verbose),
+    )
 
     println("Finished the maximization.")
 
@@ -107,14 +117,28 @@ function localnoiseestimation(z::AbstractArray{Float32,2}, τ)
     # Wavelet and scaling functions used in the original paper are the followings:
     # ψ = Array{Float32}([0.035, 0.085, -0.135, -0.460, 0.807, -0.333])
     # ϕ = Array{Float32}([0.025, -0.060, -0.095, 0.325, 0.571, 0.235])
-    ϕ = [0.035226291882100656f0, -0.08544127388224149f0, -0.13501102001039084f0, 0.4598775021193313f0, 0.8068915093133388f0, 0.3326705529509569f0]
+    ϕ = [
+        0.035226291882100656f0,
+        -0.08544127388224149f0,
+        -0.13501102001039084f0,
+        0.4598775021193313f0,
+        0.8068915093133388f0,
+        0.3326705529509569f0,
+    ]
     ϕ ./= sum(ϕ)
 
-    ψ = [-0.3326705529509569f0, 0.8068915093133388f0, -0.4598775021193313f0, -0.13501102001039084f0, 0.08544127388224149f0, 0.035226291882100656f0]
+    ψ = [
+        -0.3326705529509569f0,
+        0.8068915093133388f0,
+        -0.4598775021193313f0,
+        -0.13501102001039084f0,
+        0.08544127388224149f0,
+        0.035226291882100656f0,
+    ]
     ψ ./= norm(ψ)
 
     σ_gauss = 1.2f0
-    gauss = [exp(-x^2 / (2.0f0 * σ_gauss^2)) for x in -10.f0:10.f0]
+    gauss = [exp(-x^2 / (2.0f0 * σ_gauss^2)) for x = -10.0f0:10.0f0]
     gauss ./= sum(gauss)
 
     z_wdet = circconv(z, ψ)[1:2:end, 1:2:end]
@@ -129,16 +153,16 @@ function localnoiseestimation(z::AbstractArray{Float32,2}, τ)
     dx_wapp = circconv(smoothed_zwapp, [1.0f0], g)
     dy_wapp = circconv(smoothed_zwapp, g, [1.0f0])
 
-    x_smo = sqrt.(dx_wapp.^2 .+ dy_wapp.^2) .< τ .* s
+    x_smo = sqrt.(dx_wapp .^ 2 .+ dy_wapp .^ 2) .< τ .* s
     N = length(z_smo)
     num_bins = 300
-    histogram_zwapp = [Vector{Float32}() for _ in 1:num_bins]
-    histogram_zwdet = [Vector{Float32}() for _ in 1:num_bins]
-    min_wapp = sum(ϕ[ϕ .<  0.f0])
-    max_wapp = sum(ϕ[ϕ .>= 0.f0])
+    histogram_zwapp = [Vector{Float32}() for _ = 1:num_bins]
+    histogram_zwdet = [Vector{Float32}() for _ = 1:num_bins]
+    min_wapp = sum(ϕ[ϕ.<0.0f0])
+    max_wapp = sum(ϕ[ϕ.>=0.0f0])
     Δ = (max_wapp - min_wapp) / num_bins
 
-    for i in 1:N
+    for i = 1:N
         if x_smo[i]
             idx = floor(Int, (z_smo[i] - min_wapp) / Δ)
             push!(histogram_zwapp[idx], z_wapp[i])
@@ -147,11 +171,11 @@ function localnoiseestimation(z::AbstractArray{Float32,2}, τ)
     end
 
     est_pairs = Vector{localEstimation{Float64}}()
-    for i in 1:num_bins
+    for i = 1:num_bins
         if histogram_zwdet[i] != []
             n = length(histogram_zwdet[i])
             κ = madBiasFactor(n)
-            σ = sqrt(max(Float64(mad(histogram_zwdet[i], κ))^2, .0))
+            σ = sqrt(max(Float64(mad(histogram_zwdet[i], κ))^2, 0.0))
             y = Float64(mean(histogram_zwapp[i]))
             push!(est_pairs, localEstimation(y, σ, κ, n))
         end
@@ -161,7 +185,7 @@ function localnoiseestimation(z::AbstractArray{Float32,2}, τ)
 end
 
 
-function initialize_parameters(est_pairs::Vector{localEstimation{T}}) where T
+function initialize_parameters(est_pairs::Vector{localEstimation{T}}) where {T}
     num_pairs = length(est_pairs)
 
     y_hat = zeros(num_pairs)
@@ -178,15 +202,18 @@ function initialize_parameters(est_pairs::Vector{localEstimation{T}}) where T
         push!(v, tmp.σ^2)
     end
     Φ = hcat(Φ_tmp, ones(length(Φ_tmp)))
-    ab0 =  Φ \ v
+    ab0 = Φ \ v
     return ab0, y_hat, σ_hat
 end
 
 
-function nonclipped_negloglikelihood(ab::Vector{Float64},  est_pairs::Vector{localEstimation{T}}) where T
+function nonclipped_negloglikelihood(
+    ab::Vector{Float64},
+    est_pairs::Vector{localEstimation{T}},
+) where {T}
 
-    Δ = .1
-    total_val = .0
+    Δ = 0.1
+    total_val = 0.0
 
     for l in est_pairs
         c_i = 1.0 / l.n
@@ -199,20 +226,23 @@ function nonclipped_negloglikelihood(ab::Vector{Float64},  est_pairs::Vector{loc
         # because the algorithm may not evaluate the integrand around the peak.
         # To avoid this issue, the integration interval is separated into multiple intervals.
         # Since the peak is known to be close to y_i, the function value at y_i should be enough large than zero.
-        integrand(y::Float64)::Float64 = 1.0 / σsq_reg(y, ab) *
-            exp(-1.0 / (2.0 * σsq_reg(y, ab)) * ( (y_i - y)^2 / c_i + (σ_i - sqrt(σsq_reg(y, ab)) )^2 / d_i))
+        integrand(y::Float64)::Float64 =
+            1.0 / σsq_reg(y, ab) * exp(
+                -1.0 / (2.0 * σsq_reg(y, ab)) *
+                ((y_i - y)^2 / c_i + (σ_i - sqrt(σsq_reg(y, ab)))^2 / d_i),
+            )
 
-        val = .0
-        if y_i - Δ > .0
-            val += quadgk(integrand, .0, y_i - Δ)[1]
+        val = 0.0
+        if y_i - Δ > 0.0
+            val += quadgk(integrand, 0.0, y_i - Δ)[1]
         end
-        val += quadgk(integrand, max(.0, y_i - Δ), y_i)[1]
+        val += quadgk(integrand, max(0.0, y_i - Δ), y_i)[1]
         val += quadgk(integrand, y_i, min(1.0, y_i + Δ))[1]
         if y_i + Δ < 1.0
             val += quadgk(integrand, y_i + Δ, 1.0)[1]
         end
 
-        total_val -= log(1 / (2π * sqrt(c_i * d_i) ) * abs(val) + ϵ_reg)
+        total_val -= log(1 / (2π * sqrt(c_i * d_i)) * abs(val) + ϵ_reg)
     end
 
     return total_val

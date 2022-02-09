@@ -60,6 +60,14 @@ psf = ThreeDeconv.psf(
 options =
     ThreeDeconv.DeconvolutionOptions(max_iters = 150, show_trace = true, check_every = 50)
 reg = 0.01
-result = ThreeDeconv.deconvolve(img, psf, γ, σ, reg, options = options)
+result = ThreeDeconv.deconvolve(
+    img,
+    psf,
+    γ,
+    σ,
+    reg,
+    ThreeDeconv.ADMM(scale_problem = true),
+    options = options,
+)
 
-imsave("deconvoled.tif", result.x)
+imsave("deconvoled_scaled_iter150.tif", result.x)

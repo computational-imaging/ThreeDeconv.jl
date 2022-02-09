@@ -47,12 +47,11 @@
 mutable struct ADMM <: Solver
     ρ::Float64
     ϵ_rel_diff::Float64
+    scale_problem::Bool
 end
 
-function ADMM(;
-        ρ::Real = NaN,
-        ϵ_rel_diff::Real = 1e-3) # before: 1e-3, for accuracy: 1e-5
-    return ADMM(ρ, ϵ_rel_diff)
+function ADMM(; ρ::Real = NaN, ϵ_rel_diff::Real = 1e-3, scale_problem::Bool = false) # before: 1e-3, for accuracy: 1e-5
+    return ADMM(ρ, ϵ_rel_diff, scale_problem)
 end
 
 struct ADMMmetric <: SolverMetric
@@ -67,9 +66,10 @@ mutable struct ADMMstate{T<:AbstractArray{Float32,3}} <: SolverState
     λ::Vector{T}
     Kx::Vector{T}
     x_prev::T
+    s::Float32
 end
 
-function ADMMstate(input_shape::NTuple, output_shape::Vector{Tuple})
+function ADMMstate(input_shape::NTuple, output_shape::Vector{Tuple}, s)
     if CUDA.functional()
         x = CUDA.zeros(Float32, input_shape)
         z = [CUDA.zeros(Float32, sh) for sh in output_shape]
@@ -85,7 +85,7 @@ function ADMMstate(input_shape::NTuple, output_shape::Vector{Tuple})
         # Allocate an array for convergence check
         x_prev = zeros(Float32, input_shape)
     end
-    return ADMMstate(x, z, λ, Kx, x_prev)
+    return ADMMstate(x, z, λ, Kx, x_prev, s)
 end
 
 function print_header(method::ADMM)
@@ -98,27 +98,34 @@ function Base.show(io::IO, s::ADMMmetric)
     @printf io "%6d   %9.3g   %8.2f\n" s.iteration s.rel_norm_diff s.elapsed_time
 end
 
-function initialize_optimizer(method::ADMM,
-                              K::StackedLinearOperator,
-                              update_x!::Function,
-                              update_z!::Function)
+function initialize_optimizer(
+    method::ADMM,
+    K::StackedLinearOperator,
+    update_x!::Function,
+    update_z!::Function,
+    s::Float32,
+)
 
-    initial_state = ADMMstate(K.input_shape, K.output_shape)
+    initial_state = ADMMstate(K.input_shape, K.output_shape, s)
 
-    function update_λ!( Kx::Vector{T}, z::Vector{T}, λ::Vector{T}) where T<:AbstractArray{Float32,3}
+    function update_λ!(
+        Kx::Vector{T},
+        z::Vector{T},
+        λ::Vector{T},
+        s,
+    ) where {T<:AbstractArray{Float32,3}}
         for (Kx_j, z_j, λ_j) in zip(Kx, z, λ)
-            λ_j .+= Kx_j .- z_j
+            λ_j .+= s^2 .* Kx_j .- z_j
         end
     end
 
     function update_state!(state::ADMMstate)
         state.x_prev .= state.x
-        update_x!(state.x, state.z, state.λ)
+        update_x!(state.x, state.z, state.λ, state.s)
         K.forward!(state.x, state.Kx)
-        update_z!(state.Kx, state.z, state.λ)
-        update_λ!(state.Kx, state.z, state.λ)
+        update_z!(state.Kx, state.z, state.λ, state.s)
+        update_λ!(state.Kx, state.z, state.λ, state.s)
     end
-
 
     function check_state(state::ADMMstate, iter::Int, tic::Float64)
         rel_norm_diff = norm(state.x - state.x_prev) / norm(state.x_prev)

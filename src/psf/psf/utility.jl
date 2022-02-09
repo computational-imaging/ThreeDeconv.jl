@@ -57,7 +57,10 @@ but this aliasing should be present in the real optical system as well.
 
 TODO: someday we could add pixel fill factor as a parameter to this function.
 """
-function downsample_to_sensor_resolution(psf_image::AbstractArray{T,2}, oversampling::Int64) where T<:Real
+function downsample_to_sensor_resolution(
+    psf_image::AbstractArray{T,2},
+    oversampling::Int64,
+) where {T<:Real}
     if (oversampling == 1)
         return psf_image
     end
@@ -67,12 +70,13 @@ function downsample_to_sensor_resolution(psf_image::AbstractArray{T,2}, oversamp
     # ensure the image has an even number of pixels in each linear dimension.
     trim_r = size(psf_image, 1) % oversampling
     trim_c = size(psf_image, 2) % oversampling
-    trimmed_image = view(psf_image, 1:size(psf_image,1)-trim_r, 1:size(psf_image,2)-trim_c)
+    trimmed_image =
+        view(psf_image, 1:size(psf_image, 1)-trim_r, 1:size(psf_image, 2)-trim_c)
     height, width = size(trimmed_image)
 
     result = zeros(T, (div(height, oversampling), div(width, oversampling)))
-    for r in 1:oversampling
-        for c in 1:oversampling
+    for r = 1:oversampling
+        for c = 1:oversampling
             result .= result .+ trimmed_image[r:oversampling:end, c:oversampling:end]
         end
     end
@@ -80,7 +84,10 @@ function downsample_to_sensor_resolution(psf_image::AbstractArray{T,2}, oversamp
     return result
 end
 
-function downsample_to_sensor_resolution(psf_image::AbstractArray{T,3}, oversampling::Int64) where T<:Real
+function downsample_to_sensor_resolution(
+    psf_image::AbstractArray{T,3},
+    oversampling::Int64,
+) where {T<:Real}
     if (oversampling == 1)
         return psf_image
     end
@@ -88,15 +95,15 @@ function downsample_to_sensor_resolution(psf_image::AbstractArray{T,3}, oversamp
     # We must ensure that the image has an even number of pixels, so we pad
     # (on the bottom and right) with a row of black pixels if necessary to
     # ensure the image has an even number of pixels in each linear dimension.
-    I,J,K = size(psf_image)
+    I, J, K = size(psf_image)
     trim_r = I % oversampling
     trim_c = J % oversampling
     trimmed_image = view(psf_image, 1:I-trim_r, 1:J-trim_c, 1:K)
     height, width = size(trimmed_image)
 
     result = zeros(T, (div(height, oversampling), div(width, oversampling), K))
-    @inbounds for r in 1:oversampling
-        for c in 1:oversampling
+    @inbounds for r = 1:oversampling
+        for c = 1:oversampling
             result .+= trimmed_image[r:oversampling:end, c:oversampling:end, :]
         end
     end

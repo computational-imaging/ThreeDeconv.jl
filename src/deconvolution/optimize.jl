@@ -64,7 +64,7 @@ function optimize(optimizer::Optimizer, options::DeconvolutionOptions)
     end
 
     converged = false
-    for iter in 1:options.max_iters
+    for iter = 1:options.max_iters
 
         optimizer.update_state!(state)
 
@@ -92,5 +92,5 @@ function optimize(optimizer::Optimizer, options::DeconvolutionOptions)
 
     end
 
-    return OptimizationResult(state.x, trace, converged)
+    return OptimizationResult(state.x ./ state.s, trace, converged)
 end

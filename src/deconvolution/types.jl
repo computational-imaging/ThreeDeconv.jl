@@ -50,8 +50,8 @@ abstract type SolverMetric end
 abstract type Solver end
 
 struct Optimizer
-    method
-    initial_state
+    method::Any
+    initial_state::Any
     update_state!::Function
     check_state::Function
     check_convergence::Function
@@ -72,7 +72,8 @@ function DeconvolutionOptions(;
     show_trace::Bool = true,
     check_every::Integer = 10,
     time_limit = NaN,
-    x0::AbstractArray = [])
+    x0::AbstractArray = [],
+)
     check_every = check_every > 0 ? check_every : 1
     DeconvolutionOptions(Int(max_iters), show_trace, check_every, time_limit, x0)
 end

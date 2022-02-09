@@ -66,23 +66,38 @@ mutable struct OpticalCoordinates
     units::OpticalCoordinateUnits
 end
 
-function _fourier_plane_meshgrid_freqs(sim_size_px::Int64, sample_period::Float64,
-                                       objective_na::Float64, wavelength::Float64, focal_length::Float64,
-                                       units::SpatialFrequencyUnits)
+function _fourier_plane_meshgrid_freqs(
+    sim_size_px::Int64,
+    sample_period::Float64,
+    objective_na::Float64,
+    wavelength::Float64,
+    focal_length::Float64,
+    units::SpatialFrequencyUnits,
+)
     return fftshift(fftfreq(sim_size_px, sample_period))
 end
 
-function _fourier_plane_meshgrid_freqs(sim_size_px::Int64, sample_period::Float64,
-                                       objective_na::Float64, wavelength::Float64, focal_length::Float64,
-                                       units::MetricUnits)
+function _fourier_plane_meshgrid_freqs(
+    sim_size_px::Int64,
+    sample_period::Float64,
+    objective_na::Float64,
+    wavelength::Float64,
+    focal_length::Float64,
+    units::MetricUnits,
+)
     freqs = fftshift(fftfreq(sim_size_px, sample_period))
     freqs *= focal_len * wavelength
     return freqs
 end
 
-function _fourier_plane_meshgrid_freqs(sim_size_px::Int64, sample_period::Float64,
-                                       objective_na::Float64, wavelength::Float64, focal_length::Float64,
-                                       units::NormalizedUnits)
+function _fourier_plane_meshgrid_freqs(
+    sim_size_px::Int64,
+    sample_period::Float64,
+    objective_na::Float64,
+    wavelength::Float64,
+    focal_length::Float64,
+    units::NormalizedUnits,
+)
     freqs = fftshift(fftfreq(sim_size_px, sample_period))
     back_aperture_radius = objective_na / wavelength  # From equation 21-4 in Gross
     freqs /= back_aperture_radius
@@ -97,14 +112,14 @@ end
 
 function _fourier_plane_meshgrid_mesh(freqs, coordinate_system::PolarCoordinateSystem)
     fx, fy = WaveOptics.meshgrid(freqs, freqs)
-    r = sqrt.(fx.*fx+fy.*fy)
+    r = sqrt.(fx .* fx + fy .* fy)
     theta = atan.(fy, fx)
     return (r, theta)
 end
 
 function _fourier_plane_meshgrid_mesh(freqs, coordinate_system::BothCoordinateSystem)
     fx, fy = WaveOptics.meshgrid(freqs, freqs)
-    r = sqrt.(fx.*fx+fy.*fy)
+    r = sqrt.(fx .* fx + fy .* fy)
     theta = atan.(fy, fx)
     return (fx, fy, r, theta)
 end
@@ -144,11 +159,22 @@ cached if the arguments to the function remain the same again and again.
 `(fx, fy)` when `coordinate_system == "cartesian"` or `(r, theta)` when `coordinate_system == "polar"`
 
 """
-function fourier_plane_meshgrid(sim_size_px::Int64, sample_period::Float64,
-                                objective_na::Float64, wavelength::Float64,
-                                focal_length::Float64, units::S) where S<:OpticalCoordinateUnits
-    freqs = _fourier_plane_meshgrid_freqs(sim_size_px, sample_period, objective_na,
-                                          wavelength, focal_length, units)
-    (fx,fy,rho,theta) = _fourier_plane_meshgrid_mesh(freqs, BothCoordinateSystem())
+function fourier_plane_meshgrid(
+    sim_size_px::Int64,
+    sample_period::Float64,
+    objective_na::Float64,
+    wavelength::Float64,
+    focal_length::Float64,
+    units::S,
+) where {S<:OpticalCoordinateUnits}
+    freqs = _fourier_plane_meshgrid_freqs(
+        sim_size_px,
+        sample_period,
+        objective_na,
+        wavelength,
+        focal_length,
+        units,
+    )
+    (fx, fy, rho, theta) = _fourier_plane_meshgrid_mesh(freqs, BothCoordinateSystem())
     return OpticalCoordinates(fx, fy, rho, theta, units)
 end

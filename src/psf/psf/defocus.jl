@@ -105,18 +105,20 @@ function DefocusModel(recipe::OpticalRecipe, sim_size_m::Float64, sim_size_px::I
     padding = 2
     f_objective = recipe.f_tubelens / recipe.objective_mag
 
-    aperture_plane_coordinates = fourier_plane_meshgrid(sim_size_px * padding,
-                                                        sim_size_m/sim_size_px,
-                                                        recipe.objective_na,
-                                                        recipe.wavelength,
-                                                        f_objective,
-                                                        NormalizedUnits())
+    aperture_plane_coordinates = fourier_plane_meshgrid(
+        sim_size_px * padding,
+        sim_size_m / sim_size_px,
+        recipe.objective_na,
+        recipe.wavelength,
+        f_objective,
+        NormalizedUnits(),
+    )
 
     # Use the DebyeModel to accurately compute the ATF for the microscope.  We use this in
     # conjunction with the FFT-based defocus calculation below, making the overall computation
     # of the PSf more accurate.
     debye_model = DebyeModel(recipe, sim_size_m, sim_size_px)
-    apsf_z0 = apsf(debye_model, (0., 0., 0.))
+    apsf_z0 = apsf(debye_model, (0.0, 0.0, 0.0))
     if recipe.normalize_intensity
         apsf_z0 *= sqrt(1.0 / maximum(abs2(apsf_z0)))
     end
@@ -131,18 +133,29 @@ function DefocusModel(recipe::OpticalRecipe, sim_size_m::Float64, sim_size_px::I
     # Intensities can be scaled further by the user by setting this value explicitly.
     user_intensity_scaling_factor = 1.0
 
-    return DefocusModel(recipe, sim_size_m, sim_size_px,
-                        padding, num_observations,
-                        aperture_plane_coordinates,
-                        microscope_atf,
-                        user_intensity_scaling_factor)
+    return DefocusModel(
+        recipe,
+        sim_size_m,
+        sim_size_px,
+        padding,
+        num_observations,
+        aperture_plane_coordinates,
+        microscope_atf,
+        user_intensity_scaling_factor,
+    )
 end
 
-function na_limit!(model::DefocusModel, pupil::AbstractArray{Complex{T}}) where T<:AbstractFloat
+function na_limit!(
+    model::DefocusModel,
+    pupil::AbstractArray{Complex{T}},
+) where {T<:AbstractFloat}
     return (model.aperture_plane_coordinates.rho .<= 1.0) .* pupil
 end
 
-function na_limit!(rho::AbstractArray{T,2}, pupil::AbstractArray{Complex{T}}) where T<:AbstractFloat
+function na_limit!(
+    rho::AbstractArray{T,2},
+    pupil::AbstractArray{Complex{T}},
+) where {T<:AbstractFloat}
     return (rho .<= 1.0) .* pupil
 end
 
@@ -160,12 +173,21 @@ of simulation pixel size and can be used to achive similar intensity scaling acr
 very different PSF models.  This is especially useful for generating consistent Fisher
 information results.
 """
-function find_intensity_scaling_factor(model::PointSpreadFunctionModel, total_photons::T) where T<:Real
+function find_intensity_scaling_factor(
+    model::PointSpreadFunctionModel,
+    total_photons::T,
+) where {T<:Real}
 
     # Generate an equivalent widefield model
     recipe = model.recipe
-    wf_recipe = WaveOptics.WideFieldOpticalRecipe(recipe.objective_mag, recipe.objective_na, recipe.wavelength, recipe.medium_index, recipe.f_tubelens)
-    wf_model = WaveOptics.DefocusModel(wf_recipe, model.sim_size_m, model.sim_size_px);
+    wf_recipe = WaveOptics.WideFieldOpticalRecipe(
+        recipe.objective_mag,
+        recipe.objective_na,
+        recipe.wavelength,
+        recipe.medium_index,
+        recipe.f_tubelens,
+    )
+    wf_model = WaveOptics.DefocusModel(wf_recipe, model.sim_size_m, model.sim_size_px)
 
     # Find the areaof a simulation pixel in um^2
     #sim_pixel_area_um_squared = (model.sim_size_m / model.sim_size_px / 1000)^2
@@ -173,14 +195,14 @@ function find_intensity_scaling_factor(model::PointSpreadFunctionModel, total_ph
 
     # Find the max intensity without scaling
     WaveOptics.set_intensity_scaling_factor!(wf_model, 1.0)
-    psf0 = WaveOptics.psf(wf_model, (0,0,0))
+    psf0 = WaveOptics.psf(wf_model, (0, 0, 0))
 
-#    alpha = photons_per_um_squared / (maximum(psf0) * area_scaling_factor)
+    #    alpha = photons_per_um_squared / (maximum(psf0) * area_scaling_factor)
     alpha = total_photons / (sum(psf0))# * area_scaling_factor)
 
     # Check the result
     WaveOptics.set_intensity_scaling_factor!(wf_model, alpha)
-    psf1 = WaveOptics.psf(wf_model, (0,0,0))
+    psf1 = WaveOptics.psf(wf_model, (0, 0, 0))
 
     println("Adjusting intensity scaling factor...")
     println("   Widefield PSF sum before: $(sum(psf0))")
@@ -198,21 +220,32 @@ function set_intensity_scaling_factor!(model::DefocusModel, f::Float64)
     model.user_intensity_scaling_factor = f
 end
 
-function atf(model::DefocusModel, p::NTuple{3,T}, theta = Float64[]; na_limit::Bool = true, apply_tilt::Bool = true) where T<:Real
-    x,y,z = p  # Unpack p
+function atf(
+    model::DefocusModel,
+    p::NTuple{3,T},
+    theta = Float64[];
+    na_limit::Bool = true,
+    apply_tilt::Bool = true,
+) where {T<:Real}
+    x, y, z = p  # Unpack p
 
     # Generate a defocus ATF at the back aperture plane. This is a more
     # direct and accurate method of computing the defocus ATF than the
     # spherical wavefront and FFT method above.
-    defocus_atf = defocus_mask(z,
-                               model.aperture_plane_coordinates.rho,
-                               model.aperture_plane_coordinates.theta,
-                               model.recipe.objective_na,
-                               model.recipe.wavelength,
-                               model.recipe.medium_index)
+    defocus_atf = defocus_mask(
+        z,
+        model.aperture_plane_coordinates.rho,
+        model.aperture_plane_coordinates.theta,
+        model.recipe.objective_na,
+        model.recipe.wavelength,
+        model.recipe.medium_index,
+    )
 
     # Compute back aperture simulation size directly
-    fourier_size_m = model.sim_size_px/model.sim_size_m * model.recipe.f_tubelens * model.recipe.wavelength
+    fourier_size_m =
+        model.sim_size_px / model.sim_size_m *
+        model.recipe.f_tubelens *
+        model.recipe.wavelength
 
     # Compute the apodization appropriate to account for an objective with the abbe
     # sine correction. This would be appropriate for a plan corrected objective.
@@ -221,15 +254,26 @@ function atf(model::DefocusModel, p::NTuple{3,T}, theta = Float64[]; na_limit::B
     microscope_atf = sqrt(intensity) .* model.microscope_atf  # Use Debye model for microscope ATF
 
     # If the user has supplied an aperture code, we add it to the PSF here.
-    if apply_tilt && ((x != 0.) || (y != 0.))
-        translation_atf = translation_mask(x, y, model.aperture_plane_coordinates.fx, model.aperture_plane_coordinates.fy, model.recipe.objective_na, model.recipe.wavelength)
+    if apply_tilt && ((x != 0.0) || (y != 0.0))
+        translation_atf = translation_mask(
+            x,
+            y,
+            model.aperture_plane_coordinates.fx,
+            model.aperture_plane_coordinates.fy,
+            model.recipe.objective_na,
+            model.recipe.wavelength,
+        )
         full_atf = microscope_atf .* defocus_atf .* translation_atf
     else
         full_atf = microscope_atf .* defocus_atf
     end
 
     if !isa(model.recipe.dynamic_aperture_mask, NullCodedAperture)
-        ap_atf = mask(model.recipe.dynamic_aperture_mask, model.aperture_plane_coordinates, theta)
+        ap_atf = mask(
+            model.recipe.dynamic_aperture_mask,
+            model.aperture_plane_coordinates,
+            theta,
+        )
         full_atf .= full_atf .* ap_atf
     end
 
@@ -245,7 +289,7 @@ function otf_2d(model::DefocusModel, p, theta = Float64[]; return_freqs = false)
 
     # Compute the normalized autocorrelation using an FFT method.
     A = fftshift(fft(fftshift(fftpad(full_atf))))
-    B = fftunpad(fftshift(ifft(fftshift(A.*conj(A)))))
+    B = fftunpad(fftshift(ifft(fftshift(A .* conj(A)))))
 
     normalization = sum(full_atf .* conj(full_atf))
     norm_autocorr = B ./ normalization
@@ -275,7 +319,7 @@ Compute the amplitude point spread function.
     apsf - 2D image of the APSF on the image sensor
 """
 function apsf(model::DefocusModel, p, theta = Float64[])
-    x,y,z = p  # Unpack p
+    x, y, z = p  # Unpack p
 
     # Don't apply tilt in the back aperture, as we will opt to instead apply
     # this as a lateral translation in the image plane.
@@ -283,24 +327,41 @@ function apsf(model::DefocusModel, p, theta = Float64[])
 
     # Transform back to get the field at the image plane. Restrict to
     # circular aperture using the na_limit() function.
-    fourier_size_m = model.sim_size_px/model.sim_size_m * model.recipe.f_tubelens * model.recipe.wavelength
-    camera_size_m, apsf = ap_to_im(na_limit!(model, full_atf), fourier_size_m, model.recipe.f_tubelens, model.recipe.wavelength)
+    fourier_size_m =
+        model.sim_size_px / model.sim_size_m *
+        model.recipe.f_tubelens *
+        model.recipe.wavelength
+    camera_size_m, apsf = ap_to_im(
+        na_limit!(model, full_atf),
+        fourier_size_m,
+        model.recipe.f_tubelens,
+        model.recipe.wavelength,
+    )
     apsf = fftshift(apsf)
 
     # Unpad the FFT, and return the full result. The translate_apsf() function
     # here translates the point in x and y, returning an interpolated result.
     if x != 0.0 || y != 0.0
-        return translate_apsf(model.sim_size_m, model.sim_size_px, WaveOptics.fftunpad(apsf), x, y)
+        return translate_apsf(
+            model.sim_size_m,
+            model.sim_size_px,
+            WaveOptics.fftunpad(apsf),
+            x,
+            y,
+        )
     else
         return WaveOptics.fftunpad(apsf)
     end
 end
 
 
-function psf_3d(model::DefocusModel, zrange::AbstractArray{T,1}) where T<:Real
+function psf_3d(model::DefocusModel, zrange::AbstractArray{T,1}) where {T<:Real}
     # Transform back to get the field at the image plane. Restrict to
     # circular aperture using the na_limit() function.
-    fourier_size_m = model.sim_size_px / model.sim_size_m * model.recipe.f_tubelens * model.recipe.wavelength
+    fourier_size_m =
+        model.sim_size_px / model.sim_size_m *
+        model.recipe.f_tubelens *
+        model.recipe.wavelength
 
     c_rho = model.aperture_plane_coordinates.rho
     c_theta = model.aperture_plane_coordinates.theta
@@ -309,10 +370,13 @@ function psf_3d(model::DefocusModel, zrange::AbstractArray{T,1}) where T<:Real
     c_theta = ThreeDeconv.to_gpu_or_not_to_gpu(c_theta)
     microscope_atf = ThreeDeconv.to_gpu_or_not_to_gpu(microscope_atf)
 
-    M,N = size(c_rho)
+    M, N = size(c_rho)
 
     # Compute back aperture simulation size directly
-    fourier_size_m = model.sim_size_px / model.sim_size_m * model.recipe.f_tubelens * model.recipe.wavelength
+    fourier_size_m =
+        model.sim_size_px / model.sim_size_m *
+        model.recipe.f_tubelens *
+        model.recipe.wavelength
 
     # Compute the apodization appropriate to account for an objective with the abbe
     # sine correction. This would be appropriate for a plan corrected objective.
@@ -328,20 +392,27 @@ function psf_3d(model::DefocusModel, zrange::AbstractArray{T,1}) where T<:Real
         # Generate a defocus ATF at the back aperture plane. This is a more
         # direct and accurate method of computing the defocus ATF than the
         # spherical wavefront and FFT method above.
-        defocus_atf = defocus_mask(z,
-                                   c_rho,
-                                   c_theta,
-                                   model.recipe.objective_na,
-                                   model.recipe.wavelength,
-                                   model.recipe.medium_index)
+        defocus_atf = defocus_mask(
+            z,
+            c_rho,
+            c_theta,
+            model.recipe.objective_na,
+            model.recipe.wavelength,
+            model.recipe.medium_index,
+        )
 
         # If the user has supplied an aperture code, we add it to the PSF here.
         full_atf = microscope_atf .* defocus_atf
-        camera_size_m, apsf = ap_to_im(na_limit!(c_rho, full_atf), fourier_size_m, model.recipe.f_tubelens, model.recipe.wavelength)
-        psf3d[:,:,idx] .= collect(abs2.(apsf))
+        camera_size_m, apsf = ap_to_im(
+            na_limit!(c_rho, full_atf),
+            fourier_size_m,
+            model.recipe.f_tubelens,
+            model.recipe.wavelength,
+        )
+        psf3d[:, :, idx] .= collect(abs2.(apsf))
     end
 
-    psf3d = fftshift(psf3d, [1,2])
+    psf3d = fftshift(psf3d, [1, 2])
 
     # Unpad the FFT, and return the full result. The translate_apsf() function
     # here translates the point in x and y, returning an interpolated result.

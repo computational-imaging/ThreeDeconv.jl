@@ -53,17 +53,20 @@ include("foi.jl")
 """
 noise estimation
 """
-function noise_estimation(img::AbstractArray;
-                          maxnum_pairs::Int=300,
-                          verbose::Bool=false)
+function noise_estimation(
+    img::AbstractArray;
+    maxnum_pairs::Int = 300,
+    verbose::Bool = false,
+)
     @assert sizeof(img) <= 10^9 * 8 # Prevent input image size more than 1GB
 
     offset = -minimum(img)
     subimg = img .+ offset
     scale = 1 / (maximum(subimg) * 1.1)
-    scaled_img = Float32.(subimg.*scale)
+    scaled_img = Float32.(subimg .* scale)
 
-    scaled_a, scaled_b = foi_noiseestimation(scaled_img, maxnum_pairs=maxnum_pairs, verbose=verbose)
+    scaled_a, scaled_b =
+        foi_noiseestimation(scaled_img, maxnum_pairs = maxnum_pairs, verbose = verbose)
 
     # Rescale back the estimated parameters.
     a = scaled_a / scale
@@ -73,11 +76,11 @@ function noise_estimation(img::AbstractArray;
     γ_est = a
     σsq_est = a * offset + b
 
-    if σsq_est < .0
+    if σsq_est < 0.0
         @printf "Noise estimation might have failed. σ⁠^2 = %4.3f.\n
                  Proceeding by setting σ^2 = .0 to assure the variance's
                  nonnegativity.\n" σsq_est
-        σsq_est = .0 + 1e-10
+        σsq_est = 0.0 + 1e-10
     end
     σ_est = sqrt(σsq_est)
     println("Estimated parameters for Poisson-Gaussian noise model")
